@@ -1,0 +1,9 @@
+MapScreen(
+  tile_map: "tiles/forest1.png",
+  data: [
+    TileDesc(
+      tile_source: (2, 0),
+      screen_pos: (23, 17, 0)
+    )
+  ]
+)
