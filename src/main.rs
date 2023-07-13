@@ -1,6 +1,7 @@
 use bevy::{
     math::{ivec3, vec2},
     prelude::*,
+    sprite::collide_aabb::collide,
     window::WindowResolution,
 };
 use bevy_simple_tilemap::prelude::*;
@@ -8,7 +9,7 @@ use bevy_simple_tilemap::prelude::*;
 use serde::{Deserialize, Serialize};
 
 // 0,0 should be lower left for fuckssake
-const SCALE: f32 = 3.5;
+const SCALE: f32 = 2.5;
 const TILE_X_MAX: f32 = 24.0;
 const TILE_Y_MAX: f32 = 18.0;
 
@@ -22,6 +23,11 @@ const TOP_MARGIN: f32 = Y_RES / 5.0;
 const GAME_HEIGHT: f32 = TOP_MARGIN + Y_RES;
 const XPT: f32 = (X_RES / 2.0) * -1.0 + (TILE_X * SCALE / 2.0);
 const YPT: f32 = (Y_RES / 2.0) * -1.0 + (TILE_Y * SCALE / 2.0) - TOP_MARGIN / 2.0;
+
+const X_MAX: f32 = (X_RES + XPT) - (TILE_X * SCALE);
+const X_MIN: f32 = 0.0 + XPT;
+const Y_MAX: f32 = (Y_RES + YPT) - (TILE_Y * SCALE);
+const Y_MIN: f32 = 0.0 + YPT;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MapScreen {
@@ -38,7 +44,6 @@ struct TileDesc {
 impl From<&TileDesc> for (IVec3, Option<Tile>) {
     fn from(t: &TileDesc) -> (IVec3, Option<Tile>) {
         let sprite_index = t.tile_source.1 + (t.tile_source.0 * TILE_MAP_ROWS);
-        println!("selecting tile {sprite_index}");
         let tile = Tile {
             sprite_index,
             ..default()
@@ -50,6 +55,12 @@ impl From<&TileDesc> for (IVec3, Option<Tile>) {
 
 #[derive(Component)]
 struct Hero;
+
+#[derive(Component)]
+struct Wall;
+
+#[derive(Component)]
+struct Collider;
 
 fn main() {
     App::new()
@@ -66,7 +77,7 @@ fn main() {
         )
         .add_plugins(SimpleTileMapPlugin)
         .add_systems(Startup, setup)
-        .add_systems(FixedUpdate, move_hero)
+        .add_systems(FixedUpdate, move_hero.before(check_for_collisions))
         .run();
 }
 
@@ -131,38 +142,52 @@ fn setup(
                 })
                 .with_children(|builder| {
                     builder.spawn(TextBundle::from_section(
-                        "top test",
+                        "HARRY HAS NO HEALTH",
                         TextStyle {
-                            font_size: 20.0,
+                            font_size: 40.0,
                             color: Color::BLACK,
                             ..default()
                         },
                     ));
                 });
         });
-    
-    commands.spawn((SpriteBundle {
-        texture: asset_server.load("icons/todd.png"),
-        transform: Transform {
-            translation: Vec3::new(XPT + (TILE_X * 2.0), YPT + (TILE_Y * 2.0), 1.0),
-            scale: Vec3::splat(SCALE),
-            ..default()
+
+    commands.spawn((
+        SpriteBundle {
+            texture: asset_server.load("icons/todd.png"),
+            transform: Transform {
+                translation: Vec3::new(XPT, YPT, 1.0),
+                scale: Vec3::splat(SCALE),
+                ..default()
+            },
+            ..Default::default()
         },
-        ..Default::default()
-    }, Hero));
+        Hero,
+    ));
+
+    commands.spawn((
+        SpriteBundle {
+            texture: asset_server.load("icons/wall.png"),
+            transform: Transform {
+                translation: Vec3::new(XPT + (TILE_X * SCALE), YPT + (TILE_Y * SCALE), 1.0),
+                scale: Vec3::splat(SCALE),
+                ..default()
+            },
+            ..Default::default()
+        },
+        Wall,
+        Collider,
+    ));
 }
 
-fn move_hero(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<&mut Transform, With<Hero>>,
-) {
+fn move_hero(keyboard_input: Res<Input<KeyCode>>, mut query: Query<&mut Transform, With<Hero>>) {
     let mut hero_transform = query.single_mut();
     let mut direction = (0.0, 0.0);
 
     if keyboard_input.pressed(KeyCode::Left) {
         direction = (-1.0, 0.0);
     }
-    
+
     if keyboard_input.pressed(KeyCode::Right) {
         direction = (1.0, 0.0);
     }
@@ -175,9 +200,37 @@ fn move_hero(
         direction = (0.0, -1.0);
     }
 
-    let new_x = hero_transform.translation.x + direction.0 * TILE_X;
-    let new_y = hero_transform.translation.y + direction.1 * TILE_Y;
+    let new_x = hero_transform.translation.x + direction.0 * (TILE_X * SCALE);
+    let new_y = hero_transform.translation.y + direction.1 * (TILE_Y * SCALE);
 
-    hero_transform.translation.x = new_x;
-    hero_transform.translation.y = new_y;
+    hero_transform.translation.x = new_x.clamp(X_MIN, X_MAX);
+    hero_transform.translation.y = new_y.clamp(Y_MIN, Y_MAX);
+}
+
+fn check_for_collisions(
+    mut commands: Commands,
+    mut hero_query: Query<&mut Transform, With<Hero>>,
+    collider_query: Query<(Entity, &Transform, Option<&Wall>), With<Collider>>,
+) {
+    let hero_transform = hero_query.single_mut();
+    let hero_size = hero_transform.scale.truncate();
+
+    println!("collider: {:?}", collider_query);
+
+    for (collider_entity, transform, maybe_wall) in &collider_query {
+        let collision = collide(
+            hero_transform.translation,
+            hero_size,
+            transform.translation,
+            transform.scale.truncate(),
+        );
+        println!("collision: {:?}", collision);
+        commands.entity(collider_entity).despawn();
+
+        if let Some(_collision) = collision {
+            if maybe_wall.is_some() {
+                println!("hit a wall! {:?}", hero_transform.translation);
+            }
+        }
+    }
 }
