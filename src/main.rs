@@ -8,11 +8,9 @@ use bevy_simple_tilemap::prelude::*;
 use serde::{Deserialize, Serialize};
 
 // 0,0 should be lower left for fuckssake
-const SCALE: f32 = 343.0;
+const SCALE: f32 = 3.5;
 const TILE_X_MAX: f32 = 24.0;
 const TILE_Y_MAX: f32 = 18.0;
-const GAME_HEIGHT: f32 = 1400.0;
-const GAME_WIDTH: f32 = 2000.0;
 
 const TILE_X: f32 = 16.0;
 const TILE_Y: f32 = 16.0;
@@ -20,9 +18,9 @@ const TILE_MAP_ROWS: u32 = 16;
 const TILE_MAP_COLS: u32 = 16;
 const X_RES: f32 = TILE_X_MAX * (TILE_X * SCALE);
 const Y_RES: f32 = TILE_Y_MAX * (TILE_Y * SCALE);
-const LEFT_MARGIN: f32 = GAME_WIDTH - X_RES;
-const TOP_MARGIN: f32 = GAME_HEIGHT - Y_RES;
-const XPT: f32 = (X_RES / 2.0) * -1.0 + (TILE_X * SCALE / 2.0) + LEFT_MARGIN / 2.0;
+const TOP_MARGIN: f32 = Y_RES / 5.0;
+const GAME_HEIGHT: f32 = TOP_MARGIN + Y_RES;
+const XPT: f32 = (X_RES / 2.0) * -1.0 + (TILE_X * SCALE / 2.0);
 const YPT: f32 = (Y_RES / 2.0) * -1.0 + (TILE_Y * SCALE / 2.0) - TOP_MARGIN / 2.0;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,13 +48,16 @@ impl From<&TileDesc> for (IVec3, Option<Tile>) {
     }
 }
 
+#[derive(Component)]
+struct Hero;
+
 fn main() {
     App::new()
         .add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        resolution: WindowResolution::new(GAME_WIDTH, GAME_HEIGHT),
+                        resolution: WindowResolution::new(X_RES, GAME_HEIGHT),
                         ..default()
                     }),
                     ..default()
@@ -65,6 +66,7 @@ fn main() {
         )
         .add_plugins(SimpleTileMapPlugin)
         .add_systems(Startup, setup)
+        .add_systems(FixedUpdate, move_hero)
         .run();
 }
 
@@ -95,7 +97,7 @@ fn setup(
         tilemap,
         texture_atlas: texture_atlas_handle.clone(),
         transform: Transform {
-            translation: Vec3::new(XPT, YPT, 1.0),
+            translation: Vec3::new(XPT, YPT, 0.0),
             scale: Vec3::splat(SCALE),
             ..default()
         },
@@ -137,28 +139,45 @@ fn setup(
                         },
                     ));
                 });
-            builder
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Px(LEFT_MARGIN),
-                        height: Val::Px(GAME_HEIGHT - TOP_MARGIN),
-                        top: Val::Px(TOP_MARGIN),
-                        left: Val::Px(0.0),
-                        position_type: PositionType::Absolute,
-                        ..default()
-                    },
-                    background_color: Color::GRAY.into(),
-                    ..default()
-                })
-                .with_children(|builder| {
-                    builder.spawn(TextBundle::from_section(
-                        "left test",
-                        TextStyle {
-                            font_size: 20.0,
-                            color: Color::BLACK,
-                            ..default()
-                        },
-                    ));
-                });
         });
+    
+    commands.spawn((SpriteBundle {
+        texture: asset_server.load("icons/todd.png"),
+        transform: Transform {
+            translation: Vec3::new(XPT + (TILE_X * 2.0), YPT + (TILE_Y * 2.0), 1.0),
+            scale: Vec3::splat(SCALE),
+            ..default()
+        },
+        ..Default::default()
+    }, Hero));
+}
+
+fn move_hero(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut query: Query<&mut Transform, With<Hero>>,
+) {
+    let mut hero_transform = query.single_mut();
+    let mut direction = (0.0, 0.0);
+
+    if keyboard_input.pressed(KeyCode::Left) {
+        direction = (-1.0, 0.0);
+    }
+    
+    if keyboard_input.pressed(KeyCode::Right) {
+        direction = (1.0, 0.0);
+    }
+
+    if keyboard_input.pressed(KeyCode::Up) {
+        direction = (0.0, 1.0);
+    }
+
+    if keyboard_input.pressed(KeyCode::Down) {
+        direction = (0.0, -1.0);
+    }
+
+    let new_x = hero_transform.translation.x + direction.0 * TILE_X;
+    let new_y = hero_transform.translation.y + direction.1 * TILE_Y;
+
+    hero_transform.translation.x = new_x;
+    hero_transform.translation.y = new_y;
 }
