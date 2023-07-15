@@ -4,6 +4,7 @@ use bevy::{
     sprite::collide_aabb::collide,
     window::WindowResolution,
 };
+// use bevy_rapier2d::prelude::*;
 use bevy_simple_tilemap::prelude::*;
 
 use serde::{Deserialize, Serialize};
@@ -56,11 +57,11 @@ impl From<&TileDesc> for (IVec3, Option<Tile>) {
 #[derive(Component)]
 struct Hero;
 
-#[derive(Component)]
-struct Wall;
+#[derive(Resource)]
+struct MoveTimer(Timer);
 
 #[derive(Component)]
-struct Collider;
+struct Wall;
 
 fn main() {
     App::new()
@@ -76,8 +77,9 @@ fn main() {
                 .set(ImagePlugin::default_nearest()),
         )
         .add_plugins(SimpleTileMapPlugin)
+        .insert_resource(MoveTimer(Timer::from_seconds(0.25, TimerMode::Repeating)))
         .add_systems(Startup, setup)
-        .add_systems(FixedUpdate, move_hero.before(check_for_collisions))
+        .add_systems(FixedUpdate, move_hero)
         .run();
 }
 
@@ -176,61 +178,89 @@ fn setup(
             ..Default::default()
         },
         Wall,
-        Collider,
     ));
 }
 
-fn move_hero(keyboard_input: Res<Input<KeyCode>>, mut query: Query<&mut Transform, With<Hero>>) {
-    let mut hero_transform = query.single_mut();
-    let mut direction = (0.0, 0.0);
-
-    if keyboard_input.pressed(KeyCode::Left) {
-        direction = (-1.0, 0.0);
-    }
-
-    if keyboard_input.pressed(KeyCode::Right) {
-        direction = (1.0, 0.0);
-    }
-
-    if keyboard_input.pressed(KeyCode::Up) {
-        direction = (0.0, 1.0);
-    }
-
-    if keyboard_input.pressed(KeyCode::Down) {
-        direction = (0.0, -1.0);
-    }
-
-    let new_x = hero_transform.translation.x + direction.0 * (TILE_X * SCALE);
-    let new_y = hero_transform.translation.y + direction.1 * (TILE_Y * SCALE);
-
-    hero_transform.translation.x = new_x.clamp(X_MIN, X_MAX);
-    hero_transform.translation.y = new_y.clamp(Y_MIN, Y_MAX);
-}
-
-fn check_for_collisions(
-    mut commands: Commands,
+fn move_hero(
+    time: Res<Time>,
+    mut timer: ResMut<MoveTimer>,
+    keyboard_input: Res<Input<KeyCode>>,
     mut hero_query: Query<&mut Transform, With<Hero>>,
-    collider_query: Query<(Entity, &Transform, Option<&Wall>), With<Collider>>,
+    wall_query: Query<&Transform, (With<Wall>, Without<Hero>)>,
 ) {
-    let hero_transform = hero_query.single_mut();
-    let hero_size = hero_transform.scale.truncate();
+    if timer.0.tick(time.delta()).just_finished() {
+        let mut hero_transform = hero_query.single_mut();
+        let mut direction = (0.0, 0.0);
 
-    println!("collider: {:?}", collider_query);
+        if keyboard_input.pressed(KeyCode::Left) {
+            direction = (-1.0, 0.0);
+        }
 
-    for (collider_entity, transform, maybe_wall) in &collider_query {
-        let collision = collide(
-            hero_transform.translation,
-            hero_size,
-            transform.translation,
-            transform.scale.truncate(),
-        );
-        println!("collision: {:?}", collision);
-        commands.entity(collider_entity).despawn();
+        if keyboard_input.pressed(KeyCode::Right) {
+            direction = (1.0, 0.0);
+        }
 
-        if let Some(_collision) = collision {
-            if maybe_wall.is_some() {
-                println!("hit a wall! {:?}", hero_transform.translation);
+        if keyboard_input.pressed(KeyCode::Up) {
+            direction = (0.0, 1.0);
+        }
+
+        if keyboard_input.pressed(KeyCode::Down) {
+            direction = (0.0, -1.0);
+        }
+
+        let new_x = hero_transform.translation.x + direction.0 * (TILE_X * SCALE);
+        let new_y = hero_transform.translation.y + direction.1 * (TILE_Y * SCALE);
+
+        let hero_size = hero_transform.scale.truncate();
+
+        for transform in &wall_query {
+            let collision = collide(
+                Vec3 {
+                    x: new_x,
+                    y: new_y,
+                    z: 1.0,
+                },
+                hero_size,
+                transform.translation,
+                transform.scale.truncate(),
+            );
+
+            println!("collision: {:?}", collision);
+
+            if collision.is_some() {
+                return;
             }
         }
+
+        hero_transform.translation.x = new_x.clamp(X_MIN, X_MAX);
+        hero_transform.translation.y = new_y.clamp(Y_MIN, Y_MAX);
     }
 }
+
+// fn check_for_collisions(
+//     mut commands: Commands,
+//     mut hero_query: Query<&Transform, With<Hero>>,
+//     collider_query: Query<(Entity, &Transform, Option<&Wall>), With<Collider>>,
+// ) {
+//     let hero_transform = hero_query.single_mut();
+//     let hero_size = hero_transform.scale.truncate();
+
+//     println!("collider: {:?}", collider_query);
+
+//     for (collider_entity, transform, maybe_wall) in &collider_query {
+//         let collision = collide(
+//             hero_transform.translation,
+//             hero_size,
+//             transform.translation,
+//             transform.scale.truncate(),
+//         );
+//         println!("collision: {:?}", collision);
+//         commands.entity(collider_entity).despawn();
+
+//         if let Some(_collision) = collision {
+//             if maybe_wall.is_some() {
+//                 println!("hit a wall! {:?}", hero_transform.translation);
+//             }
+//         }
+//     }
+// }
