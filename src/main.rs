@@ -1,3 +1,7 @@
+use std::fs;
+
+use anyhow::Result;
+
 use bevy::{
     math::{ivec3, vec2},
     prelude::*,
@@ -9,26 +13,11 @@ use bevy_simple_tilemap::prelude::*;
 
 use serde::{Deserialize, Serialize};
 
-// 0,0 should be lower left for fuckssake
-const SCALE: f32 = 2.5;
-const TILE_X_MAX: f32 = 24.0;
-const TILE_Y_MAX: f32 = 18.0;
+mod settings;
+use settings::GameSettings;
 
-const TILE_X: f32 = 16.0;
-const TILE_Y: f32 = 16.0;
 const TILE_MAP_ROWS: u32 = 16;
 const TILE_MAP_COLS: u32 = 16;
-const X_RES: f32 = TILE_X_MAX * (TILE_X * SCALE);
-const Y_RES: f32 = TILE_Y_MAX * (TILE_Y * SCALE);
-const TOP_MARGIN: f32 = Y_RES / 5.0;
-const GAME_HEIGHT: f32 = TOP_MARGIN + Y_RES;
-const XPT: f32 = (X_RES / 2.0) * -1.0 + (TILE_X * SCALE / 2.0);
-const YPT: f32 = (Y_RES / 2.0) * -1.0 + (TILE_Y * SCALE / 2.0) - TOP_MARGIN / 2.0;
-
-const X_MAX: f32 = (X_RES + XPT) - (TILE_X * SCALE);
-const X_MIN: f32 = 0.0 + XPT;
-const Y_MAX: f32 = (Y_RES + YPT) - (TILE_Y * SCALE);
-const Y_MIN: f32 = 0.0 + YPT;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct MapScreen {
@@ -63,13 +52,27 @@ struct MoveTimer(Timer);
 #[derive(Component)]
 struct Wall;
 
-fn main() {
+#[derive(Debug, Serialize, Deserialize)]
+struct SettingsFile {
+    scale: f32,
+    x_max: f32,
+    y_max: f32,
+    input_debounce: f32,
+    tile_width: f32,
+    tile_height: f32,
+}
+
+fn main() -> Result<()> {
+    let settings_data = fs::read_to_string("settings.ron")?;
+    let sf: SettingsFile = ron::from_str(&settings_data)?;
+
+    let settings = GameSettings::new(sf.scale, sf.x_max, sf.y_max, sf.input_debounce, sf.tile_width, sf.tile_height);
     App::new()
         .add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        resolution: WindowResolution::new(X_RES, GAME_HEIGHT),
+                        resolution: WindowResolution::new(settings.game_area_x_res, settings.viewport_height),
                         ..default()
                     }),
                     ..default()
@@ -77,10 +80,14 @@ fn main() {
                 .set(ImagePlugin::default_nearest()),
         )
         .add_plugins(SimpleTileMapPlugin)
-        .insert_resource(MoveTimer(Timer::from_seconds(0.25, TimerMode::Repeating)))
+        .insert_resource(MoveTimer(Timer::from_seconds(
+            INPUT_DEBOUNCE,
+            TimerMode::Repeating,
+        )))
         .add_systems(Startup, setup)
         .add_systems(FixedUpdate, move_hero)
         .run();
+    Ok(())
 }
 
 fn setup(
@@ -94,7 +101,7 @@ fn setup(
     let texture_handle = asset_server.load(ms.tile_map);
     let texture_atlas = TextureAtlas::from_grid(
         texture_handle,
-        vec2(TILE_X, TILE_Y),
+        vec2(TILE_WIDTH, TILE_HEIGHT),
         TILE_MAP_COLS as usize,
         TILE_MAP_ROWS as usize,
         None,
@@ -110,7 +117,7 @@ fn setup(
         tilemap,
         texture_atlas: texture_atlas_handle.clone(),
         transform: Transform {
-            translation: Vec3::new(XPT, YPT, 0.0),
+            translation: Vec3::new(GAME_AREA_X_TRANSFORM, GAME_AREA_Y_TRANSFORM, 0.0),
             scale: Vec3::splat(SCALE),
             ..default()
         },
@@ -158,7 +165,7 @@ fn setup(
         SpriteBundle {
             texture: asset_server.load("icons/todd.png"),
             transform: Transform {
-                translation: Vec3::new(XPT, YPT, 1.0),
+                translation: Vec3::new(GAME_AREA_X_TRANSFORM, GAME_AREA_Y_TRANSFORM, 1.0),
                 scale: Vec3::splat(SCALE),
                 ..default()
             },
@@ -171,7 +178,11 @@ fn setup(
         SpriteBundle {
             texture: asset_server.load("icons/wall.png"),
             transform: Transform {
-                translation: Vec3::new(XPT + (TILE_X * SCALE), YPT + (TILE_Y * SCALE), 1.0),
+                translation: Vec3::new(
+                    GAME_AREA_X_TRANSFORM + (TILE_WIDTH * SCALE),
+                    GAME_AREA_Y_TRANSFORM + (TILE_HEIGHT * SCALE),
+                    1.0,
+                ),
                 scale: Vec3::splat(SCALE),
                 ..default()
             },
@@ -208,8 +219,8 @@ fn move_hero(
             direction = (0.0, -1.0);
         }
 
-        let new_x = hero_transform.translation.x + direction.0 * (TILE_X * SCALE);
-        let new_y = hero_transform.translation.y + direction.1 * (TILE_Y * SCALE);
+        let new_x = hero_transform.translation.x + direction.0 * (TILE_WIDTH * SCALE);
+        let new_y = hero_transform.translation.y + direction.1 * (TILE_HEIGHT * SCALE);
 
         let hero_size = hero_transform.scale.truncate();
 
@@ -232,35 +243,7 @@ fn move_hero(
             }
         }
 
-        hero_transform.translation.x = new_x.clamp(X_MIN, X_MAX);
-        hero_transform.translation.y = new_y.clamp(Y_MIN, Y_MAX);
+        hero_transform.translation.x = new_x.clamp(GAME_AREA_X_MIN, GAME_AREA_X_MAX);
+        hero_transform.translation.y = new_y.clamp(GAME_AREA_Y_MIN, GAME_AREA_Y_MAX);
     }
 }
-
-// fn check_for_collisions(
-//     mut commands: Commands,
-//     mut hero_query: Query<&Transform, With<Hero>>,
-//     collider_query: Query<(Entity, &Transform, Option<&Wall>), With<Collider>>,
-// ) {
-//     let hero_transform = hero_query.single_mut();
-//     let hero_size = hero_transform.scale.truncate();
-
-//     println!("collider: {:?}", collider_query);
-
-//     for (collider_entity, transform, maybe_wall) in &collider_query {
-//         let collision = collide(
-//             hero_transform.translation,
-//             hero_size,
-//             transform.translation,
-//             transform.scale.truncate(),
-//         );
-//         println!("collision: {:?}", collision);
-//         commands.entity(collider_entity).despawn();
-
-//         if let Some(_collision) = collision {
-//             if maybe_wall.is_some() {
-//                 println!("hit a wall! {:?}", hero_transform.translation);
-//             }
-//         }
-//     }
-// }
