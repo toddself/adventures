@@ -1,23 +1,19 @@
 use std::fs;
 
 use anyhow::Result;
-use bevy::{math::vec2, prelude::*, sprite::collide_aabb::collide, window::WindowResolution};
+use bevy::{prelude::*, sprite::collide_aabb::collide, window::WindowResolution};
 use bevy_simple_tilemap::prelude::*;
 use serde::{Deserialize, Serialize};
 
+mod components;
 mod settings;
 mod tilemap;
+use components::*;
 use settings::GameSettings;
-use tilemap::MapScreen;
-
-#[derive(Debug, Component)]
-struct Hero;
+use tilemap::{coord_to_screen_pos, MapScreen};
 
 #[derive(Debug, Resource)]
 struct MoveTimer(Timer);
-
-#[derive(Debug, Component)]
-struct Wall;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct SettingsFile {
@@ -62,7 +58,7 @@ fn main() -> Result<()> {
             sf.input_debounce,
             TimerMode::Repeating,
         )))
-        .add_systems(Startup, setup.pipe(error_handler))
+        .add_systems(Startup, (setup_camera, setup.pipe(error_handler)))
         .add_systems(Update, move_hero)
         .run();
     Ok(())
@@ -74,45 +70,21 @@ fn error_handler(In(result): In<Result<()>>) {
     }
 }
 
+fn setup_camera(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+}
+
 fn setup(
     settings: Res<GameSettings>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) -> Result<()> {
-    let ms = MapScreen::new_from_file("assets/data/map1.ron")?;
+    // tile map
+    let ms = MapScreen::new_from_file("assets/data/test.ron")?;
+    commands.spawn(ms.get_tilemap(&settings, &asset_server, texture_atlases));
 
-    let texture_handle = asset_server.load(&ms.tile_map);
-    let texture_atlas = TextureAtlas::from_grid(
-        texture_handle,
-        vec2(settings.tile_width, settings.tile_height),
-        ms.tile_cols as usize,
-        ms.tile_rows as usize,
-        None,
-        None,
-    );
-    let texture_atlas_handle = texture_atlases.add(texture_atlas);
-
-    let mut tilemap = TileMap::default();
-    tilemap.set_tiles(ms.tilemap_from_struct());
-
-    let tilemap_bundle = TileMapBundle {
-        tilemap,
-        texture_atlas: texture_atlas_handle.clone(),
-        transform: Transform {
-            translation: Vec3::new(
-                settings.game_area_x_transform,
-                settings.game_area_y_transform,
-                0.0,
-            ),
-            scale: Vec3::splat(settings.scale),
-            ..default()
-        },
-        ..default()
-    };
-
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(tilemap_bundle);
+    // ui
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -148,15 +120,12 @@ fn setup(
                 });
         });
 
+    // hero
     commands.spawn((
         SpriteBundle {
             texture: asset_server.load("icons/todd.png"),
             transform: Transform {
-                translation: Vec3::new(
-                    settings.game_area_x_transform,
-                    settings.game_area_y_transform,
-                    1.0,
-                ),
+                translation: coord_to_screen_pos(1, 16, 1.0, &settings),
                 scale: Vec3::splat(settings.scale),
                 ..default()
             },
@@ -165,22 +134,8 @@ fn setup(
         Hero,
     ));
 
-    commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("icons/wall.png"),
-            transform: Transform {
-                translation: Vec3::new(
-                    settings.game_area_x_transform + (settings.tile_width * settings.scale),
-                    settings.game_area_y_transform + (settings.tile_height * settings.scale),
-                    1.0,
-                ),
-                scale: Vec3::splat(settings.scale),
-                ..default()
-            },
-            ..Default::default()
-        },
-        Wall,
-    ));
+    // walls
+    commands.spawn_batch(ms.get_wallmap(&settings));
 
     Ok(())
 }

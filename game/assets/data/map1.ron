@@ -6,7 +6,7 @@ MapScreen(
     // row 17
     TileDesc(
       tile_source: (0, 0),
-      screen_pos: (0, 17, 0)
+      screen_pos: (0, 17, 0),
     ),
     TileDesc(
       tile_source: (0, 1),
