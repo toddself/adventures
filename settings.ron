@@ -1,0 +1,8 @@
+SettingsFile(
+  scale: 2.5,
+  x_max: 24.0,
+  y_max: 18.0,
+  input_debounce: 0.02,
+  tile_width: 16.0,
+  tile_height: 16.0,
+)
