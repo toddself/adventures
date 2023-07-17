@@ -1,33 +1,16 @@
-use std::fs;
-
 use anyhow::Result;
 use bevy::{prelude::*, sprite::collide_aabb::collide, window::WindowResolution};
 use bevy_simple_tilemap::prelude::*;
-use serde::{Deserialize, Serialize};
 
-mod components;
-mod settings;
-mod tilemap;
-use components::*;
-use settings::GameSettings;
-use tilemap::{coord_to_screen_pos, MapScreen};
+use shared::components::*;
+use shared::settings::{SettingsFile, GameSettings};
+use shared::tilemap::{coord_to_screen_pos, MapScreen};
 
 #[derive(Debug, Resource)]
 struct MoveTimer(Timer);
 
-#[derive(Debug, Serialize, Deserialize)]
-struct SettingsFile {
-    scale: f32,
-    x_max: f32,
-    y_max: f32,
-    input_debounce: f32,
-    tile_width: f32,
-    tile_height: f32,
-}
-
 fn main() -> Result<()> {
-    let settings_data = fs::read_to_string("settings.ron")?;
-    let sf: SettingsFile = ron::from_str(&settings_data)?;
+    let sf = SettingsFile::new_from_file("settings.ron")?;
 
     let settings = GameSettings::new(
         sf.scale,

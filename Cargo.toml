@@ -1,5 +1,5 @@
 [workspace]
-members = ["editor", "game"]
+members = ["editor", "game", "shared"]
 
 [profile.dev]
 opt-level = 1

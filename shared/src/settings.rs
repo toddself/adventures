@@ -1,4 +1,26 @@
+use std::fs;
+
+use anyhow::Result;
 use bevy::ecs::system::Resource;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize, Resource)]
+pub struct SettingsFile {
+    pub scale: f32,
+    pub x_max: f32,
+    pub y_max: f32,
+    pub input_debounce: f32,
+    pub tile_width: f32,
+    pub tile_height: f32,
+}
+
+impl SettingsFile {
+    pub fn new_from_file(filename: &str) -> Result<Self> {
+        let data = fs::read_to_string(filename)?;
+        let s = ron::from_str(&data)?;
+        Ok(s)
+    }
+}
 
 #[derive(Resource)]
 pub struct GameSettings {

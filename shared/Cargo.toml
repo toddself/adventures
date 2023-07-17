@@ -1,13 +1,12 @@
 [package]
-name = "game"
+name = "shared"
 version = "0.1.0"
 edition = "2021"
 
-[profile.dev]
-opt-level = 1
+[lib]
+name = "shared"
 
-[profile.dev.package."*"]
-opt-level = 3
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow.workspace = true
@@ -15,4 +14,3 @@ bevy.workspace = true
 bevy_simple_tilemap.workspace = true
 ron.workspace = true
 serde.workspace = true
-shared = { path = "../shared" }
