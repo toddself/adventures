@@ -1,13 +1,17 @@
 use anyhow::Result;
-use bevy::{prelude::*, window::WindowResolution};
+use bevy::{input::keyboard::KeyboardInput, prelude::*, window::WindowResolution};
 
 use shared::settings::SettingsFile;
 
+#[derive(Resource)]
+struct NoTile(Option<Handle<Image>>);
+
+#[derive(Component)]
+struct EditableTile;
+
 fn main() -> Result<()> {
     let settings = SettingsFile::new_from_file("settings.ron")?;
-
-    let editor_height = settings.y_max * settings.tile_height * settings.scale;
-    println!("editor height {editor_height}");
+    let editor_height = settings.y_max * (6.0 + settings.tile_height) * settings.scale;
 
     App::new()
         .add_plugins(
@@ -15,6 +19,8 @@ fn main() -> Result<()> {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         resolution: WindowResolution::new(1700.0, editor_height),
+                        title: "Lazy Cat Game Editor".to_owned(),
+                        ime_enabled: true,
                         ..default()
                     }),
                     ..default()
@@ -22,36 +28,72 @@ fn main() -> Result<()> {
                 .set(ImagePlugin::default_nearest()),
         )
         .insert_resource(settings)
-        .add_systems(Startup, (setup_camera, draw_ui))
+        .insert_resource(NoTile(None))
+        .add_systems(Startup, (setup_camera, load_assets, draw_ui).chain())
         .run();
     Ok(())
+}
+
+fn load_assets(asset_server: Res<AssetServer>, mut no_tile: ResMut<NoTile>) {
+    let no_tile_handle: Handle<Image> = asset_server.load("tiles/no-tile.png");
+    *no_tile = NoTile(Some(no_tile_handle));
 }
 
 fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
-fn item_rect(builder: &mut ChildBuilder, color: Color, settings: &SettingsFile) {
+fn map_tile(builder: &mut ChildBuilder, texture: &Option<Handle<Image>>, settings: &SettingsFile) {
+    let width = settings.tile_width * settings.scale;
+    let height = settings.tile_height * settings.scale;
+    info!("width: {width}, height: {height}");
+
     builder
         .spawn(NodeBundle {
             style: Style {
                 display: Display::Grid,
-                width: Val::Px(settings.tile_height * settings.scale),
-                height: Val::Px(settings.tile_width * settings.scale),
+                margin: UiRect::all(Val::Px(1.0)),
                 ..default()
             },
-            background_color: BackgroundColor(Color::BLACK),
+            background_color: Color::BISQUE.into(),
             ..default()
         })
         .with_children(|builder| {
-            builder.spawn(NodeBundle {
-                background_color: BackgroundColor(color),
-                ..default()
-            });
+            match texture {
+                Some(texture) => builder.spawn((
+                    ImageBundle {
+                        image: texture.clone().into(),
+                        transform: Transform {
+                            scale: Vec3::splat(settings.scale),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    EditableTile,
+                )),
+                None => builder.spawn((
+                    NodeBundle {
+                        style: Style {
+                            width: Val::Percent(100.0),
+                            height: Val::Percent(100.0),
+                            ..default()
+                        },
+                        transform: Transform {
+                            scale: Vec3::splat(settings.scale),
+                            ..default()
+                        },
+                        ..default()
+                    },
+                    EditableTile,
+                )),
+            };
         });
 }
 
 fn draw_ui(mut commands: Commands, settings: Res<SettingsFile>) {
-        
+    let width = settings.tile_width * settings.scale;
+    let height = settings.tile_height * settings.scale;
+    info!("width: {width}, height: {height}");
+
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -61,7 +103,7 @@ fn draw_ui(mut commands: Commands, settings: Res<SettingsFile>) {
                 grid_template_rows: vec![GridTrack::auto()],
                 ..default()
             },
-            background_color: Color::DARK_GRAY.into(),
+            background_color: Color::GRAY.into(),
             ..default()
         })
         .with_children(|builder| {
@@ -74,12 +116,12 @@ fn draw_ui(mut commands: Commands, settings: Res<SettingsFile>) {
                         padding: UiRect::all(Val::Px(5.0)),
                         ..default()
                     },
-                    background_color: Color::GRAY.into(),
+                    background_color: Color::DARK_GRAY.into(),
                     ..default()
                 })
                 .with_children(|builder| {
                     builder.spawn(TextBundle::from_section(
-                        "Top content",
+                        "left content",
                         TextStyle {
                             font_size: 40.0,
                             color: Color::BLACK,
@@ -94,422 +136,22 @@ fn draw_ui(mut commands: Commands, settings: Res<SettingsFile>) {
                     style: Style {
                         display: Display::Grid,
                         height: Val::Percent(100.0),
+                        width: Val::Percent(100.0),
                         aspect_ratio: Some(1.0),
-                        grid_template_columns: RepeatedGridTrack::px(
-                            settings.x_max as i32,
-                            (settings.tile_width * settings.scale) as f32,
-                        ),
-                        grid_template_rows: RepeatedGridTrack::px(
-                            settings.y_max as i32,
-                            (settings.tile_height * settings.scale) as f32,
-                        ),
+                        grid_template_columns: RepeatedGridTrack::auto(settings.x_max as u16),
+                        grid_template_rows: RepeatedGridTrack::auto(settings.y_max as u16),
                         row_gap: Val::Px(1.0),
                         column_gap: Val::Px(1.0),
-                        padding: UiRect::all(Val::Px(5.0)),
                         ..default()
                     },
                     ..default()
                 })
                 .with_children(|builder| {
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
-                    item_rect(builder, Color::ORANGE, &settings);
-                    item_rect(builder, Color::BISQUE, &settings);
-                    item_rect(builder, Color::BLUE, &settings);
-                    item_rect(builder, Color::CRIMSON, &settings);
+                    for _x in 0..settings.x_max as usize {
+                        for _y in 0..settings.y_max as usize {
+                            map_tile(builder, &None, &settings)
+                        }
+                    }
                 });
         });
 }
