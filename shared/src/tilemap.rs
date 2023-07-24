@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::{anyhow, Result};
 use bevy::{
     math::{ivec3, vec2},
-    prelude::*,
+    prelude::*
 };
 use bevy_simple_tilemap::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -31,8 +31,20 @@ enum TileType {
     Wall,
 }
 
+#[derive(Component)]
+struct MapTile;
+
 impl MapScreen {
-    pub fn new_from_file(filename: &str) -> Result<MapScreen> {
+    pub fn new(filename: &str, rows: u32, cols: u32) -> Self { 
+        MapScreen {
+            tile_map: filename.to_owned(),
+            tile_rows: rows,
+            tile_cols: cols,
+            data: vec![]
+        }
+    }
+
+    pub fn new_from_file(filename: &str) -> Result<Self> {
         let file_data = fs::read_to_string(filename)?;
         match ron::from_str(&file_data) {
             Ok(ms) => Ok(ms),
@@ -109,6 +121,17 @@ impl MapScreen {
                 ..default()
             },
             ..default()
+        }
+    }
+}
+
+impl Default for MapScreen {
+    fn default() -> Self {
+        MapScreen {
+            tile_map: String::new(), 
+            tile_rows: 16,
+            tile_cols: 16,
+            data: vec![]
         }
     }
 }

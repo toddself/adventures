@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bevy::{input::keyboard::KeyboardInput, prelude::*, window::WindowResolution};
 
-use shared::settings::SettingsFile;
+use shared::settings::{GameSettings, SettingsFile};
 
 #[derive(Resource)]
 struct NoTile(Option<Handle<Image>>);
@@ -10,15 +10,25 @@ struct NoTile(Option<Handle<Image>>);
 struct EditableTile;
 
 fn main() -> Result<()> {
-    let settings = SettingsFile::new_from_file("settings.ron")?;
-    let editor_height = settings.y_max * (6.0 + settings.tile_height) * settings.scale;
+    let sf = SettingsFile::new_from_file("settings.ron")?;
+    let settings = GameSettings::new(
+        sf.scale,
+        sf.x_max,
+        sf.y_max,
+        sf.input_debounce,
+        sf.tile_width,
+        sf.tile_height,
+    );
 
     App::new()
         .add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        resolution: WindowResolution::new(1700.0, editor_height),
+                        resolution: WindowResolution::new(
+                            settings.editor_viewport_width,
+                            settings.viewport_height,
+                        ),
                         title: "Lazy Cat Game Editor".to_owned(),
                         ime_enabled: true,
                         ..default()
@@ -42,7 +52,8 @@ fn load_assets(asset_server: Res<AssetServer>, mut no_tile: ResMut<NoTile>) {
 fn setup_camera(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 }
-fn map_tile(builder: &mut ChildBuilder, texture: &Option<Handle<Image>>, settings: &SettingsFile) {
+
+fn map_tile(builder: &mut ChildBuilder, texture: &Option<Handle<Image>>, settings: &GameSettings) {
     let width = settings.tile_width * settings.scale;
     let height = settings.tile_height * settings.scale;
     info!("width: {width}, height: {height}");
@@ -89,7 +100,7 @@ fn map_tile(builder: &mut ChildBuilder, texture: &Option<Handle<Image>>, setting
         });
 }
 
-fn draw_ui(mut commands: Commands, settings: Res<SettingsFile>) {
+fn draw_ui(mut commands: Commands, settings: Res<GameSettings>) {
     let width = settings.tile_width * settings.scale;
     let height = settings.tile_height * settings.scale;
     info!("width: {width}, height: {height}");
