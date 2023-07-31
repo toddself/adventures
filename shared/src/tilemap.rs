@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::{anyhow, Result};
 use bevy::{
     math::{ivec3, vec2},
-    prelude::*
+    prelude::*,
 };
 use bevy_simple_tilemap::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -13,7 +13,11 @@ use crate::settings::GameSettings;
 
 // converts a coordinate (origin bottom left) to an screen position
 pub fn coord_to_screen_pos(x: i32, y: i32, z: f32, settings: &GameSettings) -> Vec3 {
-    let new_x = (x as f32 * settings.tile_width * settings.scale) + settings.game_area_x_transform;
+    let x_trans = match settings.is_editor {
+        true => settings.editor_area_x_transform,
+        false => settings.game_area_x_transform,
+    };
+    let new_x = (x as f32 * settings.tile_width * settings.scale) + x_trans;
     let new_y = (y as f32 * settings.tile_height * settings.scale) + settings.game_area_y_transform;
     Vec3::new(new_x, new_y, z)
 }
@@ -27,7 +31,7 @@ pub struct MapScreen {
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-enum TileType {
+pub enum TileType {
     Wall,
 }
 
@@ -35,12 +39,12 @@ enum TileType {
 struct MapTile;
 
 impl MapScreen {
-    pub fn new(filename: &str, rows: u32, cols: u32) -> Self { 
+    pub fn new(filename: &str, rows: u32, cols: u32) -> Self {
         MapScreen {
             tile_map: filename.to_owned(),
             tile_rows: rows,
             tile_cols: cols,
-            data: vec![]
+            data: vec![],
         }
     }
 
@@ -48,7 +52,7 @@ impl MapScreen {
         let file_data = fs::read_to_string(filename)?;
         match ron::from_str(&file_data) {
             Ok(ms) => Ok(ms),
-            Err(e) => Err(anyhow!(e)),
+            Err(e) => Err(anyhow!("{}, {:?}", filename, e)),
         }
     }
 
@@ -108,15 +112,16 @@ impl MapScreen {
         let mut tilemap = TileMap::default();
         tilemap.set_tiles(self.tilemapdata_from_struct());
 
+        let x_trans = match settings.is_editor {
+            true => settings.editor_area_x_transform,
+            false => settings.game_area_x_transform,
+        };
+
         TileMapBundle {
             tilemap,
             texture_atlas: texture_atlas_handle.clone(),
             transform: Transform {
-                translation: Vec3::new(
-                    settings.game_area_x_transform,
-                    settings.game_area_y_transform,
-                    0.0,
-                ),
+                translation: Vec3::new(x_trans, settings.game_area_y_transform, 0.0),
                 scale: Vec3::splat(settings.scale),
                 ..default()
             },
@@ -128,10 +133,10 @@ impl MapScreen {
 impl Default for MapScreen {
     fn default() -> Self {
         MapScreen {
-            tile_map: String::new(), 
+            tile_map: String::new(),
             tile_rows: 16,
             tile_cols: 16,
-            data: vec![]
+            data: vec![],
         }
     }
 }

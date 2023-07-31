@@ -43,6 +43,7 @@ pub struct GameSettings {
     pub game_area_x_min: f32,
     pub game_area_y_max: f32,
     pub game_area_y_min: f32,
+    pub is_editor: bool,
 }
 
 impl GameSettings {
@@ -53,6 +54,7 @@ impl GameSettings {
         input_debounce: f32,
         tile_width: f32,
         tile_height: f32,
+        editor: bool
     ) -> Self {
         // figure out pixel dimensions of playable area
         let game_area_x_res: f32 = game_area_tile_x_max * (tile_width * scale);
@@ -63,7 +65,7 @@ impl GameSettings {
 
         // how big is the game editor right panel
         // this is not used in the game
-        let left_margin: f32 = game_area_x_res / 5.0;
+        let left_margin: f32 = game_area_x_res / 2.0;
 
         // figure out how big the application is
         let viewport_height: f32 = top_margin + game_area_y_res;
@@ -107,6 +109,7 @@ impl GameSettings {
             game_area_x_min,
             game_area_y_max,
             game_area_y_min,
+            is_editor: editor
         }
     }
 }

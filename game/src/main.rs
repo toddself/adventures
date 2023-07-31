@@ -19,6 +19,7 @@ fn main() -> Result<()> {
         sf.input_debounce,
         sf.tile_width,
         sf.tile_height,
+        false
     );
     App::new()
         .add_plugins(
