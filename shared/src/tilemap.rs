@@ -37,27 +37,45 @@ pub fn screen_pos_to_coord(coords: Vec3, settings: &GameSettings) -> (i32, i32) 
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MapScreen {
+    pub map_name: String,
+    pub map_id: uuid::Uuid,
     pub tile_map: String,
     pub tile_rows: u32,
     pub tile_cols: u32,
-    pub data: Vec<TileDesc>,
+    pub tile_data: Vec<TileDesc>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum TileType {
     Wall,
+    Door,
+    Item,
+    Enemy,
+    NPC,
 }
 
-#[derive(Component)]
-struct MapTile;
+impl Default for MapScreen {
+    fn default() -> Self {
+        MapScreen {
+            tile_rows: 24,
+            tile_cols: 18,
+            map_name: String::default(),
+            map_id: uuid::Uuid::default(),
+            tile_map: String::default(),
+            tile_data: vec![],
+        }
+    }
+}
 
 impl MapScreen {
-    pub fn new(filename: &str, rows: u32, cols: u32) -> Self {
+    pub fn new(rows: u32, cols: u32, map_name: Option<&str>, filename: Option<&str>) -> Self {
         MapScreen {
-            tile_map: filename.to_owned(),
+            map_name: map_name.unwrap_or_default().to_owned(),
+            map_id: uuid::Uuid::new_v4(),
+            tile_map: filename.unwrap_or_default().to_owned(),
             tile_rows: rows,
             tile_cols: cols,
-            data: vec![],
+            tile_data: vec![],
         }
     }
 
@@ -69,27 +87,27 @@ impl MapScreen {
         }
     }
 
-    pub fn tilemapdata_from_struct(&self) -> Vec<(IVec3, Option<Tile>)> {
-        self.data
+    pub fn tilemapdata_from_struct(&self, tile_z: f32) -> Vec<(IVec3, Option<Tile>)> {
+        self.tile_data
             .iter()
             .map(|t| {
-                let sprite_index = t.tile_source.1 + (t.tile_source.0 * self.tile_rows);
+                // let sprite_index = t.tile_source.1 + (t.tile_source.0 * self.tile_rows);
                 let tile = Tile {
-                    sprite_index,
+                    sprite_index: t.tile_index,
                     ..default()
                 };
-                let v3 = ivec3(t.screen_pos.0, t.screen_pos.1, t.screen_pos.2);
+                let v3 = ivec3(t.x, t.y, tile_z.floor() as i32);
                 (v3, Some(tile))
             })
             .collect()
     }
 
     pub fn get_wallmap(&self, settings: &GameSettings) -> Vec<(SpatialBundle, Wall)> {
-        self.data
+        self.tile_data
             .iter()
             .filter(|t| t.metadata == Some(TileType::Wall))
             .map(|t| {
-                let pos = coord_to_screen_pos(t.screen_pos.0, t.screen_pos.1, 1.0, settings);
+                let pos = coord_to_screen_pos(t.x, t.y, settings.game_z, settings);
                 (
                     SpatialBundle {
                         transform: Transform {
@@ -123,7 +141,7 @@ impl MapScreen {
         let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
         let mut tilemap = TileMap::default();
-        tilemap.set_tiles(self.tilemapdata_from_struct());
+        tilemap.set_tiles(self.tilemapdata_from_struct(settings.tile_z));
 
         let x_trans = match settings.is_editor {
             true => settings.editor_area_x_transform,
@@ -143,21 +161,11 @@ impl MapScreen {
     }
 }
 
-impl Default for MapScreen {
-    fn default() -> Self {
-        MapScreen {
-            tile_map: String::new(),
-            tile_rows: 16,
-            tile_cols: 16,
-            data: vec![],
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TileDesc {
-    tile_source: (u32, u32),
-    screen_pos: (i32, i32, i32),
+    tile_index: u32,
+    x: i32,
+    y: i32,
     metadata: Option<TileType>,
 }
 
@@ -176,6 +184,8 @@ mod tests {
             input_debounce: 0.04,
             tile_height: 16.,
             tile_width: 16.,
+            tile_z: 0.0,
+            game_z: 1.0,
         };
         let gs = GameSettings::new_from_sf(&sf, false);
         let pos0 = coord_to_screen_pos(0, 0, 0.0, &gs);
@@ -203,6 +213,8 @@ mod tests {
             input_debounce: 0.04,
             tile_height: 16.,
             tile_width: 16.,
+            tile_z: 0.0,
+            game_z: 1.0,
         };
         let gs = GameSettings::new_from_sf(&sf, false);
         let pos0 = screen_pos_to_coord(

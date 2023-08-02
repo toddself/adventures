@@ -5,4 +5,6 @@ SettingsFile(
   input_debounce: 0.04,
   tile_width: 16.0,
   tile_height: 16.0,
+  tile_z: 0.0,
+  game_z: 1.0,
 )

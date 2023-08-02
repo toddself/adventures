@@ -12,6 +12,8 @@ pub struct SettingsFile {
     pub input_debounce: f32,
     pub tile_width: f32,
     pub tile_height: f32,
+    pub tile_z: f32,
+    pub game_z: f32
 }
 
 impl SettingsFile {
@@ -43,6 +45,8 @@ pub struct GameSettings {
     pub game_area_x_min: f32,
     pub game_area_y_max: f32,
     pub game_area_y_min: f32,
+    pub tile_z: f32,
+    pub game_z: f32,
     pub is_editor: bool,
 }
 
@@ -55,6 +59,8 @@ impl GameSettings {
             sf.input_debounce,
             sf.tile_width,
             sf.tile_height,
+            sf.tile_z,
+            sf.game_z,
             editor,
         )
     }
@@ -66,6 +72,8 @@ impl GameSettings {
         input_debounce: f32,
         tile_width: f32,
         tile_height: f32,
+        tile_z: f32,
+        game_z: f32,
         editor: bool,
     ) -> Self {
         // figure out pixel dimensions of playable area
@@ -121,6 +129,8 @@ impl GameSettings {
             game_area_x_min,
             game_area_y_max,
             game_area_y_min,
+            tile_z,
+            game_z,
             is_editor: editor,
         }
     }

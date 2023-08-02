@@ -14,3 +14,4 @@ bevy.workspace = true
 bevy_simple_tilemap.workspace = true
 ron.workspace = true
 serde.workspace = true
+uuid.workspace = true

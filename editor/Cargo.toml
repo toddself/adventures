@@ -14,9 +14,4 @@ bevy_simple_tilemap.workspace = true
 ron.workspace = true
 serde.workspace = true
 shared = { path = "../shared" }
-uuid = { version = "1.4.1", features = [
-  "fast-rng",
-  "v4",
-  "serde",
-  "wasm-bindgen",
-] }
+uuid.workspace = true
