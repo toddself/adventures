@@ -2,6 +2,7 @@ use anyhow::Result;
 use bevy::{prelude::*, window::WindowResolution};
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
 use bevy_simple_tilemap::prelude::*;
+use serde::{Deserialize, Serialize};
 use uuid;
 
 use shared::settings::{GameSettings, SettingsFile};
@@ -20,8 +21,19 @@ struct EditorState {
     tile_source: String,
 }
 
+#[derive(Resource, Default)]
+struct UiState {
+    new_map_dialog_open: bool,
+}
+
+impl UiState {
+    fn toggle(&mut self) {
+        self.new_map_dialog_open = false;
+    }
+}
+
 // origin for x,y is lower left
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Serialize, Deserialize)]
 struct EditorTile {
     x: usize,
     y: usize,
@@ -31,16 +43,7 @@ struct EditorTile {
 
 fn main() -> Result<()> {
     let sf = SettingsFile::new_from_file("settings.ron")?;
-    let settings = GameSettings::new(
-        sf.scale,
-        sf.x_max,
-        sf.y_max,
-        sf.input_debounce,
-        sf.tile_width,
-        sf.tile_height,
-        true,
-    );
-
+    let settings = GameSettings::new_from_sf(&sf, true);
     let state = EditorState::default();
 
     println!(
@@ -68,6 +71,7 @@ fn main() -> Result<()> {
         .add_plugins((EguiPlugin, SimpleTileMapPlugin))
         .insert_resource(settings)
         .insert_resource(state)
+        .init_resource::<UiState>()
         .insert_resource(NoTile(None))
         .add_systems(Startup, (setup_camera, draw_map.pipe(error_handler)))
         .add_systems(Update, draw_ui)
@@ -88,16 +92,38 @@ fn error_handler(In(result): In<Result<()>>) {
 fn draw_ui(
     settings: Res<GameSettings>,
     mut editor_state: ResMut<EditorState>,
+    mut ui_state: ResMut<UiState>,
     mut contexts: EguiContexts,
 ) {
     let ctx = contexts.ctx_mut();
+
+    egui::Window::new("Create new map")
+        .open(&mut ui_state.new_map_dialog_open)
+        .show(ctx, |ui| {
+            let mut new_map_name = String::new();
+            let mut tile_source = String::new();
+            ui.horizontal_top(|ui| {
+                ui.label("map name:");
+                ui.text_edit_singleline(&mut new_map_name);
+            });
+            ui.horizontal_top(|ui| {
+                ui.label("map tile:");
+                ui.text_edit_singleline(&mut tile_source);
+            });
+            if ui.button("new map").clicked() {
+                editor_state.map_name = new_map_name.clone();
+                editor_state.map_id = uuid::Uuid::new_v4();
+                editor_state.tile_source = tile_source.clone();
+                ui_state.toggle();
+            }
+        });
 
     egui::TopBottomPanel::top("top_panel")
         .default_height(settings.top_margin)
         .show(ctx, |ui| {
             ui.horizontal_top(|ui| {
                 if ui.button("new map").clicked() {
-                    info!("new map");
+                    ui_state.new_map_dialog_open = true;
                 }
                 if ui.button("save map").clicked() {
                     info!("save map");
@@ -111,6 +137,7 @@ fn draw_ui(
                 ui.text_edit_singleline(&mut editor_state.map_name);
             });
             ui.label(format!("map id: {}", editor_state.map_id));
+            ui.label(format!("tile set: {}", editor_state.tile_source));
             ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
         });
 

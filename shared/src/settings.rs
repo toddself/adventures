@@ -47,6 +47,18 @@ pub struct GameSettings {
 }
 
 impl GameSettings {
+    pub fn new_from_sf(sf: &SettingsFile, editor: bool) -> Self {
+        Self::new(
+            sf.scale,
+            sf.x_max,
+            sf.y_max,
+            sf.input_debounce,
+            sf.tile_width,
+            sf.tile_height,
+            editor,
+        )
+    }
+
     pub fn new(
         scale: f32,
         game_area_tile_x_max: f32,
@@ -54,7 +66,7 @@ impl GameSettings {
         input_debounce: f32,
         tile_width: f32,
         tile_height: f32,
-        editor: bool
+        editor: bool,
     ) -> Self {
         // figure out pixel dimensions of playable area
         let game_area_x_res: f32 = game_area_tile_x_max * (tile_width * scale);
@@ -109,7 +121,7 @@ impl GameSettings {
             game_area_x_min,
             game_area_y_max,
             game_area_y_min,
-            is_editor: editor
+            is_editor: editor,
         }
     }
 }

@@ -22,6 +22,19 @@ pub fn coord_to_screen_pos(x: i32, y: i32, z: f32, settings: &GameSettings) -> V
     Vec3::new(new_x, new_y, z)
 }
 
+pub fn screen_pos_to_coord(coords: Vec3, settings: &GameSettings) -> (i32, i32) {
+    let x_trans = match settings.is_editor {
+        true => settings.editor_area_x_transform,
+        false => settings.game_area_x_transform,
+    };
+
+    let tile_x = settings.tile_width * settings.scale;
+    let tile_y = settings.tile_height * settings.scale;
+    let new_x = ((x_trans - coords.x) * -1.) / tile_x;
+    let new_y = ((settings.game_area_y_transform - coords.y) * -1.) / tile_y;
+    (new_x.floor() as i32, new_y.floor() as i32)
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MapScreen {
     pub tile_map: String,
@@ -146,4 +159,77 @@ pub struct TileDesc {
     tile_source: (u32, u32),
     screen_pos: (i32, i32, i32),
     metadata: Option<TileType>,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::settings::SettingsFile;
+
+    use super::*;
+
+    #[test]
+    fn coord_to_screen_pos_test() -> Result<()> {
+        let sf = SettingsFile {
+            scale: 1.,
+            x_max: 24.,
+            y_max: 18.,
+            input_debounce: 0.04,
+            tile_height: 16.,
+            tile_width: 16.,
+        };
+        let gs = GameSettings::new_from_sf(&sf, false);
+        let pos0 = coord_to_screen_pos(0, 0, 0.0, &gs);
+        assert_eq!(pos0.x, gs.game_area_x_transform);
+        assert_eq!(pos0.y, gs.game_area_y_transform);
+        println!("pos0 {:?}", pos0);
+        let pos1 = coord_to_screen_pos(1, 1, 0.0, &gs);
+        assert_eq!(
+            pos1.x,
+            gs.game_area_x_transform + (gs.scale * gs.tile_width)
+        );
+        assert_eq!(
+            pos1.y,
+            gs.game_area_y_transform + (gs.scale * gs.tile_width)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn screen_pos_to_coord_test() -> Result<()> {
+        let sf = SettingsFile {
+            scale: 1.,
+            x_max: 24.,
+            y_max: 18.,
+            input_debounce: 0.04,
+            tile_height: 16.,
+            tile_width: 16.,
+        };
+        let gs = GameSettings::new_from_sf(&sf, false);
+        let pos0 = screen_pos_to_coord(
+            Vec3::new(gs.game_area_x_transform, gs.game_area_y_transform, 0.0),
+            &gs,
+        );
+        assert_eq!(pos0, (0, 0));
+        let pos1 = screen_pos_to_coord(
+            Vec3::new(
+                gs.game_area_x_transform + (gs.scale * gs.tile_width),
+                gs.game_area_y_transform + (gs.scale * gs.tile_height),
+                0.0,
+            ),
+            &gs,
+        );
+        assert_eq!(pos1, (1, 1));
+
+        // anywhere in tile selects proper tile
+        let pos2 = screen_pos_to_coord(
+            Vec3::new(
+                gs.game_area_x_transform + (gs.scale * gs.tile_width * 4. + 2.),
+                gs.game_area_y_transform + (gs.scale * gs.tile_height * 4. + 2.),
+                0.0,
+            ),
+            &gs,
+        );
+        assert_eq!(pos2, (4, 4));
+        Ok(())
+    }
 }
