@@ -11,7 +11,10 @@ bevy.workspace = true
 bevy-inspector-egui = "0.19.0"
 bevy_egui = "0.21.0"
 bevy_simple_tilemap.workspace = true
+futures-lite = "1.13.0"
+rfd = "0.11.4"
 ron.workspace = true
 serde.workspace = true
 shared = { path = "../shared" }
+simple-home-dir = "0.1.4"
 uuid.workspace = true

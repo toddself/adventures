@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, path::PathBuf};
 
 use anyhow::{anyhow, Result};
 use bevy::{
@@ -39,7 +39,7 @@ pub fn screen_pos_to_coord(coords: Vec3, settings: &GameSettings) -> (i32, i32) 
 pub struct MapScreen {
     pub map_name: String,
     pub map_id: uuid::Uuid,
-    pub tile_map: String,
+    pub tile_map: PathBuf,
     pub tile_rows: u32,
     pub tile_cols: u32,
     pub tile_data: Vec<TileDesc>,
@@ -61,7 +61,7 @@ impl Default for MapScreen {
             tile_cols: 18,
             map_name: String::default(),
             map_id: uuid::Uuid::default(),
-            tile_map: String::default(),
+            tile_map: "".into(),
             tile_data: vec![],
         }
     }
@@ -72,7 +72,7 @@ impl MapScreen {
         MapScreen {
             map_name: map_name.unwrap_or_default().to_owned(),
             map_id: uuid::Uuid::new_v4(),
-            tile_map: filename.unwrap_or_default().to_owned(),
+            tile_map: filename.unwrap_or_default().to_owned().into(),
             tile_rows: rows,
             tile_cols: cols,
             tile_data: vec![],
@@ -129,7 +129,8 @@ impl MapScreen {
         asset_server: &Res<AssetServer>,
         mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     ) -> TileMapBundle {
-        let texture_handle = asset_server.load(&self.tile_map);
+        let tm = &self.tile_map;
+        let texture_handle = asset_server.load(tm.clone());
         let texture_atlas = TextureAtlas::from_grid(
             texture_handle,
             vec2(settings.tile_width, settings.tile_height),
