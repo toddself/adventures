@@ -20,6 +20,8 @@ use shared::tilemap::MapScreen;
 #[derive(Resource, Default)]
 struct UiState {
     current_map: MapScreen,
+    tile_texture_handle: Option<egui::TextureHandle>,
+    tile_source: Option<PathBuf>,
 }
 
 #[derive(Resource, Default)]
@@ -63,7 +65,7 @@ fn main() -> Result<()> {
         .init_resource::<FileDialogState>()
         .init_resource::<UiState>()
         .add_systems(Startup, (setup_camera, draw_map.pipe(error_handler)))
-        .add_systems(Update, (poll, draw_ui))
+        .add_systems(Update, (poll_file_dialog, draw_ui.pipe(error_handler)))
         .run();
     Ok(())
 }
@@ -79,7 +81,7 @@ fn error_handler(In(result): In<Result<()>>) {
 }
 
 // using the file dialog is a slog!
-fn poll(
+fn poll_file_dialog(
     mut commands: Commands,
     mut tasks: Query<(Entity, &mut SelectedFile)>,
     mut fds: ResMut<FileDialogState>,
@@ -92,14 +94,32 @@ fn poll(
     }
 }
 
+fn load_image_from_path(path: &std::path::Path) -> Result<egui::ColorImage, image::ImageError> {
+    let image = image::io::Reader::open(path)?.decode()?;
+    let size = [image.width() as _, image.height() as _];
+    let image_buffer = image.to_rgba8();
+    let pixels = image_buffer.as_flat_samples();
+    Ok(egui::ColorImage::from_rgba_unmultiplied(
+        size,
+        pixels.as_slice(),
+    ))
+}
+
 fn draw_ui(
     mut commands: Commands,
     settings: Res<GameSettings>,
     mut ui_state: ResMut<UiState>,
     mut fds: ResMut<FileDialogState>,
     mut contexts: EguiContexts,
-) {
+) -> Result<()> {
     let ctx = contexts.ctx_mut();
+
+    if let Some(texture_path) = &ui_state.tile_source {
+        let img = load_image_from_path(&texture_path)?;
+        ui_state
+            .tile_texture_handle
+            .get_or_insert_with(|| ctx.load_texture("tile_texture", img, Default::default()));
+    }
 
     if fds.dialog_open {
         egui::Window::new("Create new map").show(ctx, |ui| {
@@ -108,7 +128,7 @@ fn draw_ui(
                 ui.text_edit_singleline(&mut ui_state.current_map.map_name);
             });
             ui.horizontal_top(|ui| {
-                ui.label(format!("map tile: {:?}", ui_state.current_map.tile_map));
+                ui.label(format!("map tile: {:?}", fds.chosen_file));
                 if ui.button("select file").clicked() {
                     let dir = match home_dir() {
                         Some(p) => p,
@@ -134,6 +154,7 @@ fn draw_ui(
                     ui_state.current_map.map_id = uuid::Uuid::new_v4();
                     if let Some(map_file) = &fds.chosen_file {
                         ui_state.current_map.tile_map = map_file.to_path_buf();
+                        ui_state.tile_source = Some(map_file.to_path_buf());
                         fds.dialog_open = false;
                         fds.chosen_file = None;
                         fds.error_message = None;
@@ -176,8 +197,16 @@ fn draw_ui(
         .default_width(settings.left_margin)
         .show(ctx, |ui| {
             ui.heading("side panel");
+            if let Some(texture_handle) = &ui_state.tile_texture_handle {
+                ui.add(egui::widgets::Image::new(
+                    texture_handle.id(),
+                    texture_handle.size_vec2(),
+                ));
+            }
             ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
         });
+
+    Ok(())
 }
 
 fn draw_map(
