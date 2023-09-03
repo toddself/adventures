@@ -30,6 +30,7 @@ struct FileDialogState {
     chosen_file: Option<PathBuf>,
     error_message: Option<String>,
     dialog_open: bool,
+    new_map: bool
 }
 
 #[derive(Component)]
@@ -116,25 +117,28 @@ fn draw_ui(
 ) -> Result<()> {
     let ctx = contexts.ctx_mut();
 
-    if let Some(texture_path) = &ui_state.tile_source {
-        let tile_map_image = load_image_from_path(&texture_path)?;
-        let tile_map_texture = ctx.load_texture("tile_map_texture", tile_map_image.clone(), Default::default());
-        let tile_map_size = tile_map_texture.size();
-        let rows = tile_map_size[0] / ui_state.tile_size[0];
-        let cols = tile_map_size[1] / ui_state.tile_size[1];
-        let mut handles = vec![];
-        for row in 0..rows {
-            for col in 0..cols {
-                let left = row * ui_state.tile_size[0];
-                let top = col * ui_state.tile_size[1];
-                let right = left + ui_state.tile_size[0];
-                let bottom = top + ui_state.tile_size[1];
-                let rect = egui::Rect{min: egui::pos2(left as f32, top as f32), max: egui::pos2(right as f32, bottom as f32)};
-                let handle = ctx.load_texture(format!("tile_{left}_{top}_{right}_{bottom}"), tile_map_image.region(&rect, None), Default::default());
-                handles.push(handle);
+    if fds.new_map {
+        if let Some(texture_path) = &ui_state.tile_source {
+            let tile_map_image = load_image_from_path(&texture_path)?;
+            let tile_map_texture = ctx.load_texture("tile_map_texture", tile_map_image.clone(), Default::default());
+            let tile_map_size = tile_map_texture.size();
+            let rows = tile_map_size[0] / ui_state.tile_size[0];
+            let cols = tile_map_size[1] / ui_state.tile_size[1];
+            let mut handles = vec![];
+            for row in 0..rows {
+                for col in 0..cols {
+                    let left = row * ui_state.tile_size[0];
+                    let top = col * ui_state.tile_size[1];
+                    let right = left + ui_state.tile_size[0];
+                    let bottom = top + ui_state.tile_size[1];
+                    let rect = egui::Rect{min: egui::pos2(left as f32, top as f32), max: egui::pos2(right as f32, bottom as f32)};
+                    let handle = ctx.load_texture(format!("tile_{left}_{top}_{right}_{bottom}"), tile_map_image.region(&rect, None), Default::default());
+                    handles.push(handle);
+                }
             }
+            ui_state.tile_handles = Some(handles);
         }
-        ui_state.tile_handles = Some(handles);
+        fds.new_map = false;
     }
 
     if fds.dialog_open {
@@ -174,6 +178,7 @@ fn draw_ui(
                         fds.dialog_open = false;
                         fds.chosen_file = None;
                         fds.error_message = None;
+                        fds.new_map = true;
                     } else {
                         fds.chosen_file = None;
                         fds.error_message = Some(String::from("No valid file was chosen!"));
@@ -209,19 +214,34 @@ fn draw_ui(
             ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
         });
 
+    let side_panel_frame = egui::containers::Frame {
+        fill: Color32::LIGHT_GRAY,
+        ..Default::default()
+    };
+
     egui::SidePanel::left("side_panel")
+        .frame(side_panel_frame)
         .default_width(settings.left_margin)
+        .max_width(settings.left_margin)
         .show(ctx, |ui| {
-            ui.heading("side panel");
-            if let Some(tile_handles) = &ui_state.tile_handles{
-                tile_handles.iter().for_each(|h| {
-                    ui.add(egui::widgets::Image::new(
-                        h.id(),
-                        h.size_vec2(),
-                    ));
-                })
-            }
-            ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                if let Some(tile_src) = &ui_state.tile_source {
+                    ui.label(format!("{:?}", tile_src.to_string_lossy()));
+                }
+                if let Some(tile_handles) = &ui_state.tile_handles{
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP).with_main_wrap(true), |ui| {
+                        tile_handles.iter().for_each(|h| {
+                            let size = h.size_vec2();
+                            let scaled = egui::vec2(size.x * settings.scale, size.y * settings.scale);
+                            ui.add(egui::widgets::Image::new(
+                                h.id(),
+                                scaled,
+                            ));
+                        })
+                    });
+                }
+                ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
+            });
         });
 
     Ok(())
