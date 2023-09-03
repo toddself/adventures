@@ -20,8 +20,9 @@ use shared::tilemap::MapScreen;
 #[derive(Resource, Default)]
 struct UiState {
     current_map: MapScreen,
-    tile_texture_handle: Option<egui::TextureHandle>,
+    tile_handles: Option<Vec<egui::TextureHandle>>,
     tile_source: Option<PathBuf>,
+    tile_size: [usize; 2]
 }
 
 #[derive(Resource, Default)]
@@ -70,13 +71,14 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn setup_camera(mut commands: Commands) {
+fn setup_camera(mut commands: Commands, mut ui_state: ResMut<UiState>) {
     commands.spawn(Camera2dBundle::default());
+    ui_state.tile_size = [16, 16];
 }
 
 fn error_handler(In(result): In<Result<()>>) {
     if let Err(err) = result {
-        println!("encountered an error {:?}", err);
+        error!("encountered an error {:?}", err);
     }
 }
 
@@ -115,10 +117,24 @@ fn draw_ui(
     let ctx = contexts.ctx_mut();
 
     if let Some(texture_path) = &ui_state.tile_source {
-        let img = load_image_from_path(&texture_path)?;
-        ui_state
-            .tile_texture_handle
-            .get_or_insert_with(|| ctx.load_texture("tile_texture", img, Default::default()));
+        let tile_map_image = load_image_from_path(&texture_path)?;
+        let tile_map_texture = ctx.load_texture("tile_map_texture", tile_map_image.clone(), Default::default());
+        let tile_map_size = tile_map_texture.size();
+        let rows = tile_map_size[0] / ui_state.tile_size[0];
+        let cols = tile_map_size[1] / ui_state.tile_size[1];
+        let mut handles = vec![];
+        for row in 0..rows {
+            for col in 0..cols {
+                let left = row * ui_state.tile_size[0];
+                let top = col * ui_state.tile_size[1];
+                let right = left + ui_state.tile_size[0];
+                let bottom = top + ui_state.tile_size[1];
+                let rect = egui::Rect{min: egui::pos2(left as f32, top as f32), max: egui::pos2(right as f32, bottom as f32)};
+                let handle = ctx.load_texture(format!("tile_{left}_{top}_{right}_{bottom}"), tile_map_image.region(&rect, None), Default::default());
+                handles.push(handle);
+            }
+        }
+        ui_state.tile_handles = Some(handles);
     }
 
     if fds.dialog_open {
@@ -197,11 +213,13 @@ fn draw_ui(
         .default_width(settings.left_margin)
         .show(ctx, |ui| {
             ui.heading("side panel");
-            if let Some(texture_handle) = &ui_state.tile_texture_handle {
-                ui.add(egui::widgets::Image::new(
-                    texture_handle.id(),
-                    texture_handle.size_vec2(),
-                ));
+            if let Some(tile_handles) = &ui_state.tile_handles{
+                tile_handles.iter().for_each(|h| {
+                    ui.add(egui::widgets::Image::new(
+                        h.id(),
+                        h.size_vec2(),
+                    ));
+                })
             }
             ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
         });
