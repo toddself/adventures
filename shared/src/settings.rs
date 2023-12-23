@@ -13,7 +13,7 @@ pub struct SettingsFile {
     pub tile_width: f32,
     pub tile_height: f32,
     pub tile_z: f32,
-    pub game_z: f32
+    pub game_z: f32,
 }
 
 impl SettingsFile {
@@ -24,7 +24,7 @@ impl SettingsFile {
     }
 }
 
-#[derive(Resource)]
+#[derive(Debug, Resource)]
 pub struct GameSettings {
     pub scale: f32,
     pub game_area_tile_x_max: f32,

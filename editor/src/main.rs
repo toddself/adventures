@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{env, path::PathBuf};
 
 use anyhow::Result;
 use bevy::{
@@ -7,7 +7,6 @@ use bevy::{
     {tasks::AsyncComputeTaskPool, tasks::Task},
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin};
-use bevy_inspector_egui::egui::Color32;
 use bevy_simple_tilemap::prelude::*;
 use futures_lite::future;
 use rfd::FileDialog;
@@ -22,7 +21,7 @@ struct UiState {
     current_map: MapScreen,
     tile_handles: Option<Vec<egui::TextureHandle>>,
     tile_source: Option<PathBuf>,
-    tile_size: [usize; 2]
+    tile_size: [usize; 2],
 }
 
 #[derive(Resource, Default)]
@@ -30,14 +29,15 @@ struct FileDialogState {
     chosen_file: Option<PathBuf>,
     error_message: Option<String>,
     dialog_open: bool,
-    new_map: bool
+    new_map: bool,
 }
 
 #[derive(Component)]
 struct SelectedFile(Task<Option<PathBuf>>);
 
 fn main() -> Result<()> {
-    let sf = SettingsFile::new_from_file("settings.ron")?;
+    let settings_file = env::var("CONFIG_FILE").unwrap_or("settings.ron".to_string());
+    let sf = SettingsFile::new_from_file(&settings_file)?;
     let settings = GameSettings::new_from_sf(&sf, true);
 
     println!(
@@ -120,7 +120,11 @@ fn draw_ui(
     if fds.new_map {
         if let Some(texture_path) = &ui_state.tile_source {
             let tile_map_image = load_image_from_path(&texture_path)?;
-            let tile_map_texture = ctx.load_texture("tile_map_texture", tile_map_image.clone(), Default::default());
+            let tile_map_texture = ctx.load_texture(
+                "tile_map_texture",
+                tile_map_image.clone(),
+                Default::default(),
+            );
             let tile_map_size = tile_map_texture.size();
             let rows = tile_map_size[0] / ui_state.tile_size[0];
             let cols = tile_map_size[1] / ui_state.tile_size[1];
@@ -131,8 +135,15 @@ fn draw_ui(
                     let top = col * ui_state.tile_size[1];
                     let right = left + ui_state.tile_size[0];
                     let bottom = top + ui_state.tile_size[1];
-                    let rect = egui::Rect{min: egui::pos2(left as f32, top as f32), max: egui::pos2(right as f32, bottom as f32)};
-                    let handle = ctx.load_texture(format!("tile_{left}_{top}_{right}_{bottom}"), tile_map_image.region(&rect, None), Default::default());
+                    let rect = egui::Rect {
+                        min: egui::pos2(left as f32, top as f32),
+                        max: egui::pos2(right as f32, bottom as f32),
+                    };
+                    let handle = ctx.load_texture(
+                        format!("tile_{left}_{top}_{right}_{bottom}"),
+                        tile_map_image.region(&rect, None),
+                        Default::default(),
+                    );
                     handles.push(handle);
                 }
             }
@@ -165,15 +176,13 @@ fn draw_ui(
                 }
             });
             if let Some(error_message) = &fds.error_message {
-                ui.horizontal_top(|ui| {
-                    ui.label(egui::RichText::new(error_message).color(Color32::RED))
-                });
+                ui.horizontal_top(|ui| ui.label(egui::RichText::new(error_message).color(egui::Color32::RED)));
             }
             ui.horizontal_top(|ui| {
                 if ui.button("new map").clicked() {
                     ui_state.current_map.map_id = uuid::Uuid::new_v4();
                     if let Some(map_file) = &fds.chosen_file {
-                        ui_state.current_map.tile_map = map_file.to_path_buf();
+                        ui_state.current_map.tile_map = Some(map_file.to_path_buf());
                         ui_state.tile_source = Some(map_file.to_path_buf());
                         fds.dialog_open = false;
                         fds.chosen_file = None;
@@ -215,7 +224,7 @@ fn draw_ui(
         });
 
     let side_panel_frame = egui::containers::Frame {
-        fill: Color32::LIGHT_GRAY,
+        fill: egui::Color32::LIGHT_GRAY,
         ..Default::default()
     };
 
@@ -228,17 +237,18 @@ fn draw_ui(
                 if let Some(tile_src) = &ui_state.tile_source {
                     ui.label(format!("{:?}", tile_src.to_string_lossy()));
                 }
-                if let Some(tile_handles) = &ui_state.tile_handles{
-                    ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP).with_main_wrap(true), |ui| {
-                        tile_handles.iter().for_each(|h| {
-                            let size = h.size_vec2();
-                            let scaled = egui::vec2(size.x * settings.scale, size.y * settings.scale);
-                            ui.add(egui::widgets::Image::new(
-                                h.id(),
-                                scaled,
-                            ));
-                        })
-                    });
+                if let Some(tile_handles) = &ui_state.tile_handles {
+                    ui.with_layout(
+                        egui::Layout::left_to_right(egui::Align::TOP).with_main_wrap(true),
+                        |ui| {
+                            tile_handles.iter().for_each(|h| {
+                                let size = h.size_vec2();
+                                let scaled =
+                                    egui::vec2(size.x * settings.scale, size.y * settings.scale);
+                                ui.add(egui::widgets::Image::new(egui::load::SizedTexture::new(h.id(), scaled)));
+                            })
+                        },
+                    );
                 }
                 ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
             });
@@ -254,10 +264,12 @@ fn draw_map(
     mut commands: Commands,
     texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) -> Result<()> {
-    commands.spawn(
-        ui_state
-            .current_map
-            .get_tilemap(&settings, &asset_server, texture_atlases),
-    );
+    if ui_state.current_map.tile_map.is_some() {
+        commands.spawn(
+            ui_state
+                .current_map
+                .get_tilemap(&settings, &asset_server, texture_atlases),
+        );
+    }
     Ok(())
 }
