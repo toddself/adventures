@@ -6,7 +6,10 @@ use bevy::{
     window::WindowResolution,
     {tasks::AsyncComputeTaskPool, tasks::Task},
 };
-use bevy_egui::{egui::{self, TextureHandle}, EguiContexts, EguiPlugin};
+use bevy_egui::{
+    egui::{self, TextureHandle},
+    EguiContexts, EguiPlugin,
+};
 use bevy_simple_tilemap::prelude::*;
 use futures_lite::future;
 use rfd::FileDialog;
@@ -177,7 +180,9 @@ fn draw_ui(
                 }
             });
             if let Some(error_message) = &fds.error_message {
-                ui.horizontal_top(|ui| ui.label(egui::RichText::new(error_message).color(egui::Color32::RED)));
+                ui.horizontal_top(|ui| {
+                    ui.label(egui::RichText::new(error_message).color(egui::Color32::RED))
+                });
             }
             ui.horizontal_top(|ui| {
                 if ui.button("new map").clicked() {
@@ -246,13 +251,22 @@ fn draw_ui(
                                 let size = h.size_vec2();
                                 let scaled =
                                     egui::vec2(size.x * settings.scale, size.y * settings.scale);
-                                let tint = if Some(h) == ui_state.selected_tile.as_ref() {
-                                    egui::Color32::GOLD
+
+                                if Some(h) == ui_state.selected_tile.as_ref() {
+                                    ui.visuals_mut().panel_fill = egui::Color32::GOLD;
                                 } else {
-                                    egui::Color32::WHITE
-                                };
-                                let tilemap_button = egui::widgets::ImageButton::new(egui::load::SizedTexture::new(h.id(), scaled)).frame(false).tint(tint);
-                                if ui.add(tilemap_button).clicked() {
+                                    ui.visuals_mut().panel_fill = egui::Color32::BLACK;
+                                }
+
+                                let widget_x = size.x * settings.scale + 2.;
+                                let widget_y = size.y * settings.scale + 2.;
+
+                                let tilemap_button = egui::widgets::ImageButton::new(
+                                    egui::load::SizedTexture::new(h.id(), scaled),
+                                )
+                                .frame(false);
+
+                                if ui.add_sized([widget_x, widget_y], tilemap_button).clicked() {
                                     ui_state.selected_tile = Some(h.clone());
                                 }
                             })
