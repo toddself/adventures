@@ -6,7 +6,7 @@ use bevy::{
     window::WindowResolution,
     {tasks::AsyncComputeTaskPool, tasks::Task},
 };
-use bevy_egui::{egui, EguiContexts, EguiPlugin};
+use bevy_egui::{egui::{self, TextureHandle}, EguiContexts, EguiPlugin};
 use bevy_simple_tilemap::prelude::*;
 use futures_lite::future;
 use rfd::FileDialog;
@@ -22,6 +22,7 @@ struct UiState {
     tile_handles: Option<Vec<egui::TextureHandle>>,
     tile_source: Option<PathBuf>,
     tile_size: [usize; 2],
+    selected_tile: Option<TextureHandle>,
 }
 
 #[derive(Resource, Default)]
@@ -237,7 +238,7 @@ fn draw_ui(
                 if let Some(tile_src) = &ui_state.tile_source {
                     ui.label(format!("{:?}", tile_src.to_string_lossy()));
                 }
-                if let Some(tile_handles) = &ui_state.tile_handles {
+                if let Some(tile_handles) = ui_state.tile_handles.clone() {
                     ui.with_layout(
                         egui::Layout::left_to_right(egui::Align::TOP).with_main_wrap(true),
                         |ui| {
@@ -245,7 +246,15 @@ fn draw_ui(
                                 let size = h.size_vec2();
                                 let scaled =
                                     egui::vec2(size.x * settings.scale, size.y * settings.scale);
-                                ui.add(egui::widgets::Image::new(egui::load::SizedTexture::new(h.id(), scaled)));
+                                let tint = if Some(h) == ui_state.selected_tile.as_ref() {
+                                    egui::Color32::GOLD
+                                } else {
+                                    egui::Color32::WHITE
+                                };
+                                let tilemap_button = egui::widgets::ImageButton::new(egui::load::SizedTexture::new(h.id(), scaled)).frame(false).tint(tint);
+                                if ui.add(tilemap_button).clicked() {
+                                    ui_state.selected_tile = Some(h.clone());
+                                }
                             })
                         },
                     );
