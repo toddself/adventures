@@ -13,7 +13,6 @@ use bevy_egui::{
 use bevy_simple_tilemap::prelude::*;
 use futures_lite::future;
 use rfd::FileDialog;
-use simple_home_dir::home_dir;
 use uuid;
 
 use shared::settings::{GameSettings, SettingsFile};
@@ -163,12 +162,13 @@ fn draw_ui(
                 ui.text_edit_singleline(&mut ui_state.current_map.map_name);
             });
             ui.horizontal_top(|ui| {
-                ui.label(format!("map tile: {:?}", fds.chosen_file));
+                let tile_map_name = match &fds.chosen_file {
+                    Some(tm) => tm.to_string_lossy().into_owned(),
+                    None => "".to_owned(),
+                };
+                ui.label(format!("map tile: {tile_map_name}"));
                 if ui.button("select file").clicked() {
-                    let dir = match home_dir() {
-                        Some(p) => p,
-                        None => "/".into(),
-                    };
+                    let dir = std::env::current_dir().unwrap_or("/".into());
                     let thread_pool = AsyncComputeTaskPool::get();
                     let task = thread_pool.spawn(async move {
                         FileDialog::new()
@@ -225,12 +225,16 @@ fn draw_ui(
                 ui.text_edit_singleline(&mut ui_state.current_map.map_name);
             });
             ui.label(format!("map id: {}", ui_state.current_map.map_id));
-            ui.label(format!("tile set: {:?}", ui_state.current_map.tile_map));
+            let tile_map_name = match &ui_state.current_map.tile_map {
+                Some(tm) => tm.to_string_lossy().into_owned(),
+                None => "".to_owned(),
+            };
+            ui.label(format!("tile set: {tile_map_name}"));
             ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
         });
 
     let side_panel_frame = egui::containers::Frame {
-        fill: egui::Color32::LIGHT_GRAY,
+        fill: egui::Color32::DARK_GRAY,
         ..Default::default()
     };
 
@@ -240,39 +244,73 @@ fn draw_ui(
         .max_width(settings.left_margin)
         .show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
-                if let Some(tile_src) = &ui_state.tile_source {
-                    ui.label(format!("{:?}", tile_src.to_string_lossy()));
-                }
-                if let Some(tile_handles) = ui_state.tile_handles.clone() {
-                    ui.with_layout(
-                        egui::Layout::left_to_right(egui::Align::TOP).with_main_wrap(true),
-                        |ui| {
+                let tm_name = match &ui_state.tile_source {
+                    Some(ts) => ts
+                        .to_string_lossy()
+                        .into_owned()
+                        .split('/')
+                        .last()
+                        .unwrap_or("")
+                        .to_owned(),
+                    None => "No tile source selected".to_owned(),
+                };
+                ui.with_layout(
+                    egui::Layout::left_to_right(egui::Align::TOP).with_main_justify(true),
+                    |ui| {
+                        ui.label(
+                            egui::RichText::new(tm_name)
+                                .size(16.)
+                                .strong()
+                                .color(egui::Color32::BLACK),
+                        )
+                    },
+                );
+
+                ui.with_layout(
+                    egui::Layout::left_to_right(egui::Align::TOP).with_main_wrap(true),
+                    |ui| {
+                        ui.style_mut().spacing.item_spacing = egui::vec2(10., 10.);
+
+                        ui.style_mut().visuals.widgets.active = egui::style::WidgetVisuals {
+                            bg_fill: egui::Color32::GOLD,
+                            weak_bg_fill: egui::Color32::GOLD,
+                            bg_stroke: egui::Stroke::NONE,
+                            rounding: egui::Rounding::ZERO,
+                            fg_stroke: egui::Stroke::NONE,
+                            expansion: 0.,
+                        };
+
+                        ui.style_mut().visuals.widgets.inactive = egui::style::WidgetVisuals {
+                            bg_fill: egui::Color32::DARK_GRAY,
+                            weak_bg_fill: egui::Color32::DARK_GRAY,
+                            bg_stroke: egui::Stroke::NONE,
+                            rounding: egui::Rounding::ZERO,
+                            fg_stroke: egui::Stroke::NONE,
+                            expansion: 0.,
+                        };
+
+                        ui.style_mut().visuals.window_fill = egui::Color32::RED;
+
+                        if let Some(tile_handles) = ui_state.tile_handles.clone() {
                             tile_handles.iter().for_each(|h| {
                                 let size = h.size_vec2();
                                 let scaled =
                                     egui::vec2(size.x * settings.scale, size.y * settings.scale);
 
-                                if Some(h) == ui_state.selected_tile.as_ref() {
-                                    ui.visuals_mut().panel_fill = egui::Color32::GOLD;
-                                } else {
-                                    ui.visuals_mut().panel_fill = egui::Color32::BLACK;
-                                }
-
-                                let widget_x = size.x * settings.scale + 2.;
-                                let widget_y = size.y * settings.scale + 2.;
-
                                 let tilemap_button = egui::widgets::ImageButton::new(
                                     egui::load::SizedTexture::new(h.id(), scaled),
                                 )
-                                .frame(false);
+                                .selected(Some(h) == ui_state.selected_tile.as_ref())
+                                .frame(true);
 
-                                if ui.add_sized([widget_x, widget_y], tilemap_button).clicked() {
+                                if ui.add(tilemap_button).clicked() {
+                                    bevy::log::trace!("clicked on {:?}", h.name());
                                     ui_state.selected_tile = Some(h.clone());
                                 }
                             })
-                        },
-                    );
-                }
+                        }
+                    },
+                );
                 ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
             });
         });
