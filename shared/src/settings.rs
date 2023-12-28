@@ -64,6 +64,7 @@ impl GameSettings {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         scale: f32,
         game_area_tile_x_max: f32,
