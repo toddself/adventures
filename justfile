@@ -7,5 +7,11 @@ editor:
 game:
   CONFIG_FILE=./editor/settings.ron just run game
 
-test:
-  cargo test
+test component: 
+  cargo test -- --nocapture
+
+test-editor:
+  just test editor
+
+test-game:
+  just test game

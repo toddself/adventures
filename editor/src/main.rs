@@ -3,7 +3,7 @@ use std::{env, path::PathBuf};
 use anyhow::Result;
 use bevy::{
     prelude::*,
-    window::WindowResolution,
+    window::{PrimaryWindow, WindowResolution},
     {tasks::AsyncComputeTaskPool, tasks::Task},
 };
 use bevy_egui::{
@@ -15,8 +15,11 @@ use futures_lite::future;
 use rfd::FileDialog;
 use uuid;
 
-use shared::settings::{GameSettings, SettingsFile};
 use shared::tilemap::MapScreen;
+use shared::{
+    settings::{GameSettings, SettingsFile},
+    tilemap::{top_left_to_coord, TileCoords},
+};
 
 #[derive(Resource, Default)]
 struct UiState {
@@ -25,6 +28,8 @@ struct UiState {
     tile_source: Option<PathBuf>,
     tile_size: [usize; 2],
     selected_tile: Option<TextureHandle>,
+    cursor_pos: Option<Vec2>,
+    current_tile: Option<TileCoords>,
 }
 
 #[derive(Resource, Default)]
@@ -45,7 +50,7 @@ fn main() -> Result<()> {
 
     println!(
         "Creating editor: {}x{}",
-        settings.editor_viewport_width, settings.viewport_height
+        settings.viewport_width, settings.viewport_height
     );
 
     App::new()
@@ -54,7 +59,7 @@ fn main() -> Result<()> {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         resolution: WindowResolution::new(
-                            settings.editor_viewport_width,
+                            settings.viewport_width,
                             settings.viewport_height,
                         ),
                         title: "Lazy Cat Game Editor".to_owned(),
@@ -70,7 +75,14 @@ fn main() -> Result<()> {
         .init_resource::<FileDialogState>()
         .init_resource::<UiState>()
         .add_systems(Startup, (setup_camera, draw_map.pipe(error_handler)))
-        .add_systems(Update, (poll_file_dialog, draw_ui.pipe(error_handler)))
+        .add_systems(
+            Update,
+            (
+                poll_file_dialog,
+                draw_ui.pipe(error_handler),
+                mouse_button_input.pipe(error_handler),
+            ),
+        )
         .run();
     Ok(())
 }
@@ -240,8 +252,8 @@ fn draw_ui(
 
     egui::SidePanel::left("side_panel")
         .frame(side_panel_frame)
+        .resizable(false)
         .default_width(settings.left_margin)
-        .max_width(settings.left_margin)
         .show(ctx, |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let tm_name = match &ui_state.tile_source {
@@ -325,6 +337,7 @@ fn draw_map(
     mut commands: Commands,
     texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) -> Result<()> {
+    bevy::log::debug!("Settings: {:?}", settings);
     if ui_state.current_map.tile_map.is_some() {
         commands.spawn(
             ui_state
@@ -332,5 +345,46 @@ fn draw_map(
                 .get_tilemap(&settings, &asset_server, texture_atlases),
         );
     }
+    Ok(())
+}
+
+fn mouse_button_input(
+    q_windows: Query<&Window, With<PrimaryWindow>>,
+    buttons: Res<Input<MouseButton>>,
+    settings: Res<GameSettings>,
+    mut ui_state: ResMut<UiState>,
+) -> Result<()> {
+    let position = q_windows.single().cursor_position();
+
+    match position {
+        Some(pos) => {
+            if Some(pos) != ui_state.cursor_pos {
+                ui_state.cursor_pos = Some(pos.clone());
+                let screen_pos = Vec3::new(pos.x, pos.y, 0.);
+                ui_state.current_tile = Some(top_left_to_coord(screen_pos, &settings));
+                bevy::log::trace!(
+                    "absolute cursor: {:?}, current tile is {:?}",
+                    ui_state.cursor_pos,
+                    ui_state.current_tile
+                );
+            }
+        }
+        None => (),
+    };
+
+    if buttons.just_pressed(MouseButton::Left) {
+        bevy::log::info!(
+            "pressed left mouse button at {:?}, tile: {:?}",
+            ui_state.cursor_pos,
+            ui_state.current_tile
+        );
+    } else if buttons.just_pressed(MouseButton::Right) {
+        bevy::log::info!(
+            "pressed right mouse button at {:?}, tile: {:?}",
+            ui_state.cursor_pos,
+            ui_state.current_tile
+        );
+    }
+
     Ok(())
 }
