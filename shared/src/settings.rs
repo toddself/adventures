@@ -100,7 +100,8 @@ impl GameSettings {
         let game_area_x_transform: f32 =
             ((game_area_x_res / 2.0) * -1.0 + ((tile_width * scale) / 2.0)).floor() - left_margin;
         let game_area_y_transform: f32 =
-            ((game_area_y_res / 2.0) * -1.0 + ((tile_height * scale) / 2.0) - (top_margin / 2.0)).floor();
+            ((game_area_y_res / 2.0) * -1.0 + ((tile_height * scale) / 2.0) - (top_margin / 2.0))
+                .floor();
 
         // figure out the pixel positions of the "walls" around the playable area
         let game_area_x_max: f32 = (game_area_x_res + game_area_x_transform) - (tile_width * scale);
@@ -154,7 +155,7 @@ mod tests {
         let gs = GameSettings::new_from_sf(&sf, false);
         assert_eq!(gs.game_area_x_res, 384., "game_area_x_res");
         assert_eq!(gs.game_area_y_res, 288., "game_area_y_res");
-        assert_eq!(gs.top_margin,  57., "top_margin");
+        assert_eq!(gs.top_margin, 57., "top_margin");
         assert_eq!(gs.left_margin, 0., "left_margin");
         assert_eq!(gs.viewport_width, 384., "viewport_width");
         assert_eq!(gs.viewport_height, 345., "viewport_height");
@@ -182,7 +183,7 @@ mod tests {
         let gs = GameSettings::new_from_sf(&sf, true);
         assert_eq!(gs.game_area_x_res, 384., "game_area_x_res");
         assert_eq!(gs.game_area_y_res, 288., "game_area_y_res");
-        assert_eq!(gs.top_margin,  57., "top_margin");
+        assert_eq!(gs.top_margin, 57., "top_margin");
         assert_eq!(gs.left_margin, 192., "left_margin");
         assert_eq!(gs.viewport_width, 576., "viewport_width");
         assert_eq!(gs.viewport_height, 345., "viewport_height");

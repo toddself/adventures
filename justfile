@@ -15,3 +15,18 @@ test-editor:
 
 test-game:
   just test game
+
+test-all: test-game test-editor
+
+format-check:
+  cargo fmt --all -- --check
+
+clippy-check:
+  cargo clippy --all-targets
+
+format:
+  cargo fmt --all
+
+clippy:
+  cargo clippy --all-targets --fix
+
