@@ -59,7 +59,7 @@ use bevy_simple_tilemap::prelude::*;
 use futures_lite::future;
 use rfd::FileDialog;
 
-use shared::tilemap::MapScreen;
+use shared::tilemap::{MapScreen, TileDesc};
 use shared::{
     settings::{GameSettings, SettingsFile},
     tilemap::{top_left_to_coord, TileCoords},
@@ -72,6 +72,7 @@ struct UiState {
     tile_source: Option<PathBuf>,
     tile_size: [usize; 2],
     selected_tile: Option<TextureHandle>,
+    selected_tile_index: Option<i32>,
     cursor_pos: Option<Vec2>,
     current_tile: Option<TileCoords>,
 }
@@ -125,6 +126,7 @@ fn main() -> Result<()> {
                 poll_file_dialog,
                 draw_ui.pipe(error_handler),
                 mouse_button_input.pipe(error_handler),
+                draw_map.pipe(error_handler),
             ),
         )
         .run();
@@ -188,6 +190,7 @@ fn draw_ui(
             let rows = tile_map_size[0] / ui_state.tile_size[0];
             let cols = tile_map_size[1] / ui_state.tile_size[1];
             let mut handles = vec![];
+            let mut tile_index = 0;
             for row in 0..rows {
                 for col in 0..cols {
                     let left = row * ui_state.tile_size[0];
@@ -199,11 +202,12 @@ fn draw_ui(
                         max: egui::pos2(right as f32, bottom as f32),
                     };
                     let handle = ctx.load_texture(
-                        format!("tile_{left}_{top}_{right}_{bottom}"),
+                        format!("{tile_index}"),
                         tile_map_image.region(&rect, None),
                         Default::default(),
                     );
                     handles.push(handle);
+                    tile_index += 1;
                 }
             }
             ui_state.tile_handles = Some(handles);
@@ -362,6 +366,8 @@ fn draw_ui(
                                 if ui.add(tilemap_button).clicked() {
                                     bevy::log::trace!("clicked on {:?}", h.name());
                                     ui_state.selected_tile = Some(h.clone());
+                                    ui_state.selected_tile_index =
+                                        Some(h.name().parse().unwrap_or(0));
                                 }
                             })
                         }
@@ -413,14 +419,25 @@ fn mouse_button_input(
         }
     }
 
-    if buttons.just_pressed(MouseButton::Left) {
-        bevy::log::info!(
-            "pressed left mouse button at {:?}, tile: {:?}",
+    let tile = ui_state.current_tile.as_ref().unwrap_or_default();
+
+    if buttons.just_pressed(MouseButton::Left) && tile.x() > -1 {
+        bevy::log::debug!(
+            "pressed left mouse button at {:?}, tile: {:?}, will paint index {:?}",
             ui_state.cursor_pos,
-            ui_state.current_tile
+            ui_state.current_tile,
+            ui_state.selected_tile_index
         );
+
+        // TODO: this is not working
+        if let Some(coords) = &ui_state.current_tile {
+            let tile_index = ui_state.selected_tile_index.unwrap_or_default() as u32;
+            let tile_desc = TileDesc::new(tile_index, coords.clone(), None);
+            bevy::log::debug!("setting map {:?}", &tile_desc);
+            ui_state.current_map.tile_data.push(tile_desc);
+        }
     } else if buttons.just_pressed(MouseButton::Right) {
-        bevy::log::info!(
+        bevy::log::debug!(
             "pressed right mouse button at {:?}, tile: {:?}",
             ui_state.cursor_pos,
             ui_state.current_tile

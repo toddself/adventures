@@ -11,12 +11,34 @@ use serde::{Deserialize, Serialize};
 use crate::components::Wall;
 use crate::settings::GameSettings;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TileCoords(i32, i32);
 
 impl Display for TileCoords {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{},{}", self.0, self.1)
+    }
+}
+
+impl TileCoords {
+    pub fn x(&self) -> i32 {
+        self.0
+    }
+
+    pub fn y(&self) -> i32 {
+        self.1
+    }
+}
+
+impl Default for TileCoords {
+    fn default() -> Self {
+        TileCoords(-1, -1)
+    }
+}
+
+impl Default for &TileCoords {
+    fn default() -> Self {
+        &TileCoords(-1, -1)
     }
 }
 
@@ -111,7 +133,7 @@ impl MapScreen {
                     sprite_index: t.tile_index,
                     ..default()
                 };
-                let v3 = ivec3(t.x, t.y, tile_z.floor() as i32);
+                let v3 = ivec3(t.coords.x(), t.coords.y(), tile_z.floor() as i32);
                 (v3, Some(tile))
             })
             .collect()
@@ -122,7 +144,8 @@ impl MapScreen {
             .iter()
             .filter(|t| t.metadata == Some(TileType::Wall))
             .map(|t| {
-                let pos = coord_to_screen_pos(t.x, t.y, settings.game_z, settings);
+                let pos =
+                    coord_to_screen_pos(t.coords.x(), t.coords.y(), settings.game_z, settings);
                 (
                     SpatialBundle {
                         transform: Transform {
@@ -185,9 +208,18 @@ impl MapScreen {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TileDesc {
     tile_index: u32,
-    x: i32,
-    y: i32,
+    coords: TileCoords,
     metadata: Option<TileType>,
+}
+
+impl TileDesc {
+    pub fn new(index: u32, coords: TileCoords, metadata: Option<TileType>) -> TileDesc {
+        TileDesc {
+            tile_index: index,
+            coords,
+            metadata,
+        }
+    }
 }
 
 #[cfg(test)]
