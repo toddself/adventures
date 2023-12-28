@@ -8,6 +8,16 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 bevy.workspace = true
+bevy-inspector-egui = "0.21.0"
+bevy_egui = "0.24.0"
+bevy_simple_tilemap.workspace = true
+futures-lite = "1.13.0"
+image = "0.24.7"
+rfd = { version = "0.12.1", default_features = false, features = [
+  "xdg-portal",
+] }
 ron.workspace = true
 serde.workspace = true
 shared = { path = "../shared" }
+simple-home-dir = "0.1.4"
+uuid.workspace = true

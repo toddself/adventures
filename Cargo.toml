@@ -1,5 +1,6 @@
 [workspace]
 members = ["editor", "game", "shared"]
+resolver = "2"
 
 [profile.dev]
 opt-level = 1
@@ -9,10 +10,14 @@ opt-level = 3
 
 [workspace.dependencies]
 anyhow = "1.0.72"
-bevy = { version = "0.11.0", features = ["dynamic_linking", "wayland"] }
-bevy_simple_tilemap = "0.12.0"
+bevy = { version = "0.12.1", features = ["wayland"] }
+bevy_simple_tilemap = "0.13.0"
 ron = "0.8.0"
 serde = { version = "1.0.171", features = ["derive"] }
 thiserror = "1.0.43"
-
-
+uuid = { version = "1.4.1", features = [
+  "fast-rng",
+  "v4",
+  "serde",
+  "wasm-bindgen",
+] }

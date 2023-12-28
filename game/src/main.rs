@@ -3,7 +3,7 @@ use bevy::{prelude::*, sprite::collide_aabb::collide, window::WindowResolution};
 use bevy_simple_tilemap::prelude::*;
 
 use shared::components::*;
-use shared::settings::{SettingsFile, GameSettings};
+use shared::settings::{GameSettings, SettingsFile};
 use shared::tilemap::{coord_to_screen_pos, MapScreen};
 
 #[derive(Debug, Resource)]
@@ -11,15 +11,8 @@ struct MoveTimer(Timer);
 
 fn main() -> Result<()> {
     let sf = SettingsFile::new_from_file("settings.ron")?;
+    let settings = GameSettings::new_from_sf(&sf, false);
 
-    let settings = GameSettings::new(
-        sf.scale,
-        sf.x_max,
-        sf.y_max,
-        sf.input_debounce,
-        sf.tile_width,
-        sf.tile_height,
-    );
     App::new()
         .add_plugins(
             DefaultPlugins
