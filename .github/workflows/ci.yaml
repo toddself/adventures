@@ -15,6 +15,7 @@ jobs:
       - name: install rust
         uses: actions-rs/toolchain@v1
         with:
+          toolchain: stable
           components: rustfmt, clippy
       - name: run rustfmt
         run: |
@@ -30,6 +31,7 @@ jobs:
       - name: install rust
         uses: actions-rs/toolchain@v1
         with:
+          toolchain: stable
           components: rustfmt, clippy
       - name: run clippy
         run: |
@@ -45,6 +47,7 @@ jobs:
       - name: install rust
         uses: actions-rs/toolchain@v1
         with:
+          toolchain: stable
           components: rustfmt, clippy
       - name: run clippy
         run: |
