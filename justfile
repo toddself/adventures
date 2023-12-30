@@ -8,7 +8,7 @@ game:
   CONFIG_FILE=./editor/settings.ron just run game
 
 test component: 
-  cargo test -- --nocapture
+  cargo test -p {{component}} -- --nocapture
 
 test-editor:
   just test editor
@@ -16,7 +16,10 @@ test-editor:
 test-game:
   just test game
 
-test-all: test-game test-editor
+test-shared:
+  just test shared
+
+test-all: test-game test-editor test-shared
 
 format-check:
   cargo fmt --all -- --check

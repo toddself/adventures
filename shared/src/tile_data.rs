@@ -36,20 +36,10 @@ impl TileData {
     }
 
     pub fn from_vec(max_x: u32, max_y: u32, tiles: Vec<TileDesc>) -> Result<Self> {
-        let mut td = TileData {
-            max_x,
-            max_y,
-            curr_x: 0,
-            curr_y: 0,
-            data: HashMap::new(),
-        };
-
+        let mut td = TileData::new(max_x, max_y);
         for t in tiles.into_iter() {
             td.set_tile(t)?;
         }
-
-        println!("{:?}", td.data);
-
         Ok(td)
     }
 
@@ -63,8 +53,8 @@ impl TileData {
             col.insert(y, tile);
         } else {
             col.insert(y, tile);
+            self.data.insert(x, col);
         };
-        self.data.insert(x, col);
         Ok(())
     }
 
@@ -119,6 +109,11 @@ mod test {
     fn set_and_get() -> Result<()> {
         let mut td = TileData::new(2, 2);
         td.set_tile(TileDesc::new(0, TileCoords::new(0, 0), None))?;
+        let tile = td.get_tile(&0, &0)?;
+        let (x, y) = tile.coords.into();
+        let res = td.get_tile(&3, &3);
+        assert_eq!((x, y), (0, 0));
+        assert!(res.is_err());
         Ok(())
     }
 
@@ -132,10 +127,12 @@ mod test {
         let td = TileData::from_vec(2, 2, v)?;
 
         let t1 = td.get_tile(&0, &0)?;
-        let t2 = td.get_tile(&0, &0)?;
-        assert_eq!(t1, &TileDesc::new(0, TileCoords::new(0, 0), None));
-        assert_eq!(t2, &TileDesc::new(0, TileCoords::new(1, 0), None));
+        let t2 = td.get_tile(&1, &0)?;
 
+        let (t1x, t1y) = t1.coords.into();
+        let (t2x, t2y) = t2.coords.into();
+        assert_eq!((t1x, t1y), (0, 0));
+        assert_eq!((t2x, t2y), (1, 0));
         Ok(())
     }
 }

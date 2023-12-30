@@ -34,7 +34,7 @@ impl From<TileCoords> for (u32, u32) {
     }
 }
 
-// converts a coordinate (origin bottom left) to an screen position
+// converts a coordinate (origin bottom left) to an screen position, (origin top left)
 pub fn coord_to_screen_pos(x: u32, y: u32, z: f32, settings: &GameSettings) -> Vec3 {
     let new_x = (x as f32 * settings.tile_width * settings.scale) + settings.game_area_x_transform;
     let new_y = (y as f32 * settings.tile_height * settings.scale) + settings.game_area_y_transform;
