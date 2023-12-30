@@ -72,33 +72,6 @@ impl TileData {
     }
 }
 
-// impl Iterator for TileData {
-//     type Item = TileDesc;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         match self.data.get(&self.curr_x) {
-//             Some(col) => {
-//                 self.curr_x = if self.curr_x + 1 > self.max_x {
-//                     0
-//                 } else {
-//                     self.curr_x + 1
-//                 };
-
-//                 let val = col.get(&self.curr_y).copied();
-
-//                 self.curr_y = if self.curr_y + 1 > self.max_y {
-//                     0
-//                 } else {
-//                     self.curr_y + 1
-//                 };
-
-//                 val
-//             }
-//             None => None,
-//         }
-//     }
-// }
-
 pub struct TileDataIterator<'iter> {
     td: &'iter TileData,
     curr_x: u32,
@@ -131,31 +104,6 @@ impl<'iter> Iterator for TileDataIterator<'iter> {
         }
     }
 }
-
-// pub struct TileDataIntoIterator {
-//     td: TileData
-// }
-
-// impl Iterator for TileDataIntoIterator {
-//     type Item = TileDesc;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         if self.td.data.len() === 0 {
-//             return None;
-//         } 
-//         let col = self.td.data.get_mut( 
-
-//     }
-// }
-
-// impl IntoIterator for TileData {
-//     type Item = TileDesc;
-//     type IntoIter = TileDataIntoIterator;
-
-//     fn into_iter(self) -> Self::IntoIter {
-//         TileDataIntoIterator { td: self }    
-//     }
-// }
 
 #[cfg(test)]
 mod test {

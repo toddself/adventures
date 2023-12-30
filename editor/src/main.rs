@@ -73,7 +73,7 @@ struct UiState {
     tile_source: Option<PathBuf>,
     tile_size: [usize; 2],
     selected_tile: Option<TextureHandle>,
-    selected_tile_index: Option<i32>,
+    selected_tile_index: Option<u32>,
     cursor_pos: Option<Vec2>,
     current_tile: Option<TileCoords>,
 }
@@ -437,7 +437,11 @@ fn mouse_button_input(
         // TODO: this is not working
         if let Some(coords) = &ui_state.current_tile.clone() {
             bevy::log::debug!("setting coords {coords}");
-        }
+            if let Some(tile_index) = &ui_state.selected_tile_index {
+                let tile = TileDesc::new(*tile_index, *coords, None);
+                ui_state.current_map.tile_data.set_tile(tile)?;
+            }
+        };
     } else if buttons.just_pressed(MouseButton::Right) {
         bevy::log::debug!(
             "pressed right mouse button at {:?}, tile: {:?}",
