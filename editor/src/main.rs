@@ -427,7 +427,7 @@ fn mouse_button_input(
     }
 
     if buttons.just_pressed(MouseButton::Left) && ui_state.current_tile.is_some() {
-        bevy::log::debug!(
+        bevy::log::trace!(
             "pressed left mouse button at {:?}, tile: {:?}, will paint index {:?}",
             ui_state.cursor_pos,
             ui_state.current_tile,
@@ -436,10 +436,7 @@ fn mouse_button_input(
 
         // TODO: this is not working
         if let Some(coords) = &ui_state.current_tile.clone() {
-            let tile_index = ui_state.selected_tile_index.unwrap_or_default() as u32;
-            let tile_desc = TileDesc::new(tile_index, *coords, None);
-            bevy::log::debug!("setting map {:?}", &tile_desc);
-            ui_state.current_map.tile_data.push(tile_desc);
+            bevy::log::debug!("setting coords {coords}");
         }
     } else if buttons.just_pressed(MouseButton::Right) {
         bevy::log::debug!(

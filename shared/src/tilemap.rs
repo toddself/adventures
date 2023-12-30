@@ -12,7 +12,7 @@ use bevy::{
 use bevy_simple_tilemap::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::components::Wall;
+use crate::{components::Wall, tile_data::TileData};
 use crate::settings::GameSettings;
 use crate::tile_coords::{coord_to_screen_pos, TileCoords};
 
@@ -23,7 +23,7 @@ pub struct MapScreen {
     pub tile_set: Option<PathBuf>,
     pub tile_rows: u32,
     pub tile_cols: u32,
-    pub tile_data: Vec<TileDesc>,
+    pub tile_data: TileData,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Copy, Clone)]
@@ -43,7 +43,7 @@ impl Default for MapScreen {
             map_name: String::default(),
             map_id: uuid::Uuid::default(),
             tile_set: None,
-            tile_data: vec![],
+            tile_data: TileData::default()
         }
     }
 }
@@ -56,7 +56,7 @@ impl MapScreen {
             tile_set: Some(filename.unwrap_or_default().to_owned().into()),
             tile_rows: rows,
             tile_cols: cols,
-            tile_data: vec![],
+            tile_data: TileData::default(),
         }
     }
 
