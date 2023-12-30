@@ -5,39 +5,37 @@ use serde::{Deserialize, Serialize};
 
 use crate::settings::GameSettings;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct TileCoords(i32, i32);
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TileCoords(u32, u32);
 
 impl Display for TileCoords {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{},{}", self.0, self.1)
+        write!(f, "{}, {}", self.0, self.1)
     }
 }
 
 impl TileCoords {
-    pub fn x(&self) -> i32 {
+    pub fn new(x: u32, y: u32) -> Self {
+        TileCoords(x, y)
+    }
+
+    pub fn x(&self) -> u32 {
         self.0
     }
 
-    pub fn y(&self) -> i32 {
+    pub fn y(&self) -> u32 {
         self.1
     }
 }
 
-impl Default for TileCoords {
-    fn default() -> Self {
-        TileCoords(-1, -1)
-    }
-}
-
-impl Default for &TileCoords {
-    fn default() -> Self {
-        &TileCoords(-1, -1)
+impl From<TileCoords> for (u32, u32) {
+    fn from(value: TileCoords) -> Self {
+        (value.x(), value.y())
     }
 }
 
 // converts a coordinate (origin bottom left) to an screen position
-pub fn coord_to_screen_pos(x: i32, y: i32, z: f32, settings: &GameSettings) -> Vec3 {
+pub fn coord_to_screen_pos(x: u32, y: u32, z: f32, settings: &GameSettings) -> Vec3 {
     let new_x = (x as f32 * settings.tile_width * settings.scale) + settings.game_area_x_transform;
     let new_y = (y as f32 * settings.tile_height * settings.scale) + settings.game_area_y_transform;
     Vec3::new(new_x, new_y, z)
@@ -51,7 +49,7 @@ pub fn screen_pos_to_coord(coords: Vec3, settings: &GameSettings) -> Option<Tile
     let new_y = ((settings.game_area_y_transform - coords.y) * -1.) / tile_y;
 
     if new_x >= 0. && new_y >= 0. {
-        Some(TileCoords(new_x as i32, new_y as i32))
+        Some(TileCoords(new_x as u32, new_y as u32))
     } else {
         None
     }
@@ -68,7 +66,7 @@ pub fn top_left_to_coord(coords: Vec3, settings: &GameSettings) -> Option<TileCo
     let new_y = y / tile_y;
 
     if new_x >= 0. && new_y >= 0. {
-        Some(TileCoords(new_x as i32, new_y as i32))
+        Some(TileCoords(new_x as u32, new_y as u32))
     } else {
         None
     }

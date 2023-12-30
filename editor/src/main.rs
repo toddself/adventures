@@ -58,6 +58,7 @@ use bevy_egui::{
 use bevy_simple_tilemap::prelude::*;
 use futures_lite::future;
 use rfd::FileDialog;
+use thiserror::Error;
 
 use shared::tilemap::{MapScreen, TileDesc};
 use shared::{
@@ -87,6 +88,12 @@ struct FileDialogState {
 
 #[derive(Component)]
 struct SelectedFile(Task<Option<PathBuf>>);
+
+#[derive(Debug, Error)]
+enum SystemError {
+    #[error("Unable to generate tilemap")]
+    BadTilemap,
+}
 
 fn main() -> Result<()> {
     let settings_file = env::var("CONFIG_FILE").unwrap_or("settings.ron".to_string());
@@ -389,11 +396,11 @@ fn draw_map(
 ) -> Result<()> {
     if ui_state.current_map.tile_set.is_some() {
         bevy::log::debug!("map is some {:?}", ui_state.current_map);
-        commands.spawn(
-            ui_state
-                .current_map
-                .get_tilemap(&settings, &asset_server, texture_atlases),
-        );
+        let tilemap = ui_state
+            .current_map
+            .get_tilemap(&settings, &asset_server, texture_atlases)
+            .ok_or(SystemError::BadTilemap)?;
+        commands.spawn(tilemap);
     }
     Ok(())
 }
@@ -428,9 +435,9 @@ fn mouse_button_input(
         );
 
         // TODO: this is not working
-        if let Some(coords) = &ui_state.current_tile {
+        if let Some(coords) = &ui_state.current_tile.clone() {
             let tile_index = ui_state.selected_tile_index.unwrap_or_default() as u32;
-            let tile_desc = TileDesc::new(tile_index, coords.clone(), None);
+            let tile_desc = TileDesc::new(tile_index, *coords, None);
             bevy::log::debug!("setting map {:?}", &tile_desc);
             ui_state.current_map.tile_data.push(tile_desc);
         }

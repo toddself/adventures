@@ -10,3 +10,4 @@ bevy_simple_tilemap.workspace = true
 ron.workspace = true
 serde.workspace = true
 shared = { path = "../shared" }
+thiserror.workspace = true

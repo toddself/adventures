@@ -1,6 +1,7 @@
 use anyhow::Result;
 use bevy::{prelude::*, sprite::collide_aabb::collide, window::WindowResolution};
 use bevy_simple_tilemap::prelude::*;
+use thiserror::Error;
 
 use shared::components::*;
 use shared::settings::{GameSettings, SettingsFile};
@@ -9,6 +10,12 @@ use shared::tilemap::MapScreen;
 
 #[derive(Debug, Resource)]
 struct MoveTimer(Timer);
+
+#[derive(Debug, Error)]
+enum GameError {
+    #[error("Unable to initilize game: {0}")]
+    InitializationError(String),
+}
 
 fn main() -> Result<()> {
     let sf = SettingsFile::new_from_file("settings.ron")?;
@@ -59,7 +66,12 @@ fn setup(
 ) -> Result<()> {
     // tile map
     let ms = MapScreen::new_from_file("assets/data/test.ron")?;
-    commands.spawn(ms.get_tilemap(&settings, &asset_server, texture_atlases));
+    let tilemap = ms
+        .get_tilemap(&settings, &asset_server, texture_atlases)
+        .ok_or(GameError::InitializationError(
+            "Unable to generate tilemap".to_string(),
+        ))?;
+    commands.spawn(tilemap);
 
     // ui
     commands

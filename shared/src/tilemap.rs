@@ -26,7 +26,7 @@ pub struct MapScreen {
     pub tile_data: Vec<TileDesc>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Copy, Clone)]
 pub enum TileType {
     Wall,
     Door,
@@ -68,19 +68,20 @@ impl MapScreen {
         }
     }
 
-    pub fn tilemapdata_from_struct(&self, tile_z: f32) -> Vec<(IVec3, Option<Tile>)> {
-        self.tile_data
-            .iter()
-            .map(|t| {
-                // let sprite_index = t.tile_source.1 + (t.tile_source.0 * self.tile_rows);
-                let tile = Tile {
-                    sprite_index: t.tile_index,
-                    ..bevy::utils::default()
-                };
-                let v3 = ivec3(t.coords.x(), t.coords.y(), tile_z.floor() as i32);
-                (v3, Some(tile))
-            })
-            .collect()
+    pub fn tilemapdata_from_struct(&self, tile_z: f32) -> Option<Vec<(IVec3, Option<Tile>)>> {
+        let mut data = vec![];
+        for t in self.tile_data.iter() {
+            // let sprite_index = t.tile_source.1 + (t.tile_source.0 * self.tile_rows);
+            let tile = Tile {
+                sprite_index: t.tile_index,
+                ..bevy::utils::default()
+            };
+            let xi32 = i32::try_from(t.coords.x()).ok()?;
+            let yi32 = i32::try_from(t.coords.y()).ok()?;
+            let v3 = ivec3(xi32, yi32, tile_z.floor() as i32);
+            data.push((v3, Some(tile)))
+        }
+        Some(data)
     }
 
     pub fn get_wallmap(&self, settings: &GameSettings) -> Vec<(SpatialBundle, Wall)> {
@@ -110,7 +111,7 @@ impl MapScreen {
         settings: &GameSettings,
         asset_server: &Res<AssetServer>,
         mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    ) -> TileMapBundle {
+    ) -> Option<TileMapBundle> {
         let tm = match &self.tile_set {
             Some(tm) => tm.clone(),
             None => {
@@ -130,29 +131,34 @@ impl MapScreen {
         let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
         let mut tilemap = TileMap::default();
-        tilemap.set_tiles(self.tilemapdata_from_struct(settings.tile_z));
+        match self.tilemapdata_from_struct(settings.tile_z) {
+            Some(data) => {
+                tilemap.set_tiles(data);
 
-        TileMapBundle {
-            tilemap,
-            texture_atlas: texture_atlas_handle.clone(),
-            transform: Transform {
-                translation: Vec3::new(
-                    settings.game_area_x_transform,
-                    settings.game_area_y_transform,
-                    0.0,
-                ),
-                scale: Vec3::splat(settings.scale),
-                ..bevy::utils::default()
-            },
-            ..bevy::utils::default()
+                Some(TileMapBundle {
+                    tilemap,
+                    texture_atlas: texture_atlas_handle.clone(),
+                    transform: Transform {
+                        translation: Vec3::new(
+                            settings.game_area_x_transform,
+                            settings.game_area_y_transform,
+                            0.0,
+                        ),
+                        scale: Vec3::splat(settings.scale),
+                        ..bevy::utils::default()
+                    },
+                    ..bevy::utils::default()
+                })
+            }
+            None => None,
         }
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Copy, Deserialize, Clone, PartialEq)]
 pub struct TileDesc {
     tile_index: u32,
-    coords: TileCoords,
+    pub coords: TileCoords,
     metadata: Option<TileType>,
 }
 

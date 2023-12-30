@@ -1842,6 +1842,7 @@ dependencies = [
  "serde",
  "shared",
  "simple-home-dir",
+ "thiserror",
  "uuid",
 ]
 
@@ -2247,6 +2248,7 @@ dependencies = [
  "ron",
  "serde",
  "shared",
+ "thiserror",
 ]
 
 [[package]]
