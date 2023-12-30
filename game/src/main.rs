@@ -4,7 +4,8 @@ use bevy_simple_tilemap::prelude::*;
 
 use shared::components::*;
 use shared::settings::{GameSettings, SettingsFile};
-use shared::tilemap::{coord_to_screen_pos, MapScreen};
+use shared::tile_coords::coord_to_screen_pos;
+use shared::tilemap::MapScreen;
 
 #[derive(Debug, Resource)]
 struct MoveTimer(Timer);

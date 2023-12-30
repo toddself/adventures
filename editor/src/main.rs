@@ -62,7 +62,7 @@ use rfd::FileDialog;
 use shared::tilemap::{MapScreen, TileDesc};
 use shared::{
     settings::{GameSettings, SettingsFile},
-    tilemap::{top_left_to_coord, TileCoords},
+    tile_coords::{top_left_to_coord, TileCoords},
 };
 
 #[derive(Resource, Default)]
@@ -248,7 +248,7 @@ fn draw_ui(
                 if ui.button("new map").clicked() {
                     ui_state.current_map.map_id = uuid::Uuid::new_v4();
                     if let Some(map_file) = &fds.chosen_file {
-                        ui_state.current_map.tile_map = Some(map_file.to_path_buf());
+                        ui_state.current_map.tile_set = Some(map_file.to_path_buf());
                         ui_state.tile_source = Some(map_file.to_path_buf());
                         fds.dialog_open = false;
                         fds.chosen_file = None;
@@ -285,7 +285,7 @@ fn draw_ui(
                 ui.text_edit_singleline(&mut ui_state.current_map.map_name);
             });
             ui.label(format!("map id: {}", ui_state.current_map.map_id));
-            let tile_map_name = match &ui_state.current_map.tile_map {
+            let tile_map_name = match &ui_state.current_map.tile_set {
                 Some(tm) => tm.to_string_lossy().into_owned(),
                 None => "".to_owned(),
             };
@@ -387,8 +387,8 @@ fn draw_map(
     mut commands: Commands,
     texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) -> Result<()> {
-    bevy::log::debug!("Settings: {:?}", settings);
-    if ui_state.current_map.tile_map.is_some() {
+    if ui_state.current_map.tile_set.is_some() {
+        bevy::log::debug!("map is some {:?}", ui_state.current_map);
         commands.spawn(
             ui_state
                 .current_map
@@ -410,7 +410,7 @@ fn mouse_button_input(
         if Some(pos) != ui_state.cursor_pos {
             ui_state.cursor_pos = Some(pos);
             let screen_pos = Vec3::new(pos.x, pos.y, 0.);
-            ui_state.current_tile = Some(top_left_to_coord(screen_pos, &settings));
+            ui_state.current_tile = top_left_to_coord(screen_pos, &settings);
             bevy::log::trace!(
                 "absolute cursor: {:?}, current tile is {:?}",
                 ui_state.cursor_pos,
@@ -419,9 +419,7 @@ fn mouse_button_input(
         }
     }
 
-    let tile = ui_state.current_tile.as_ref().unwrap_or_default();
-
-    if buttons.just_pressed(MouseButton::Left) && tile.x() > -1 {
+    if buttons.just_pressed(MouseButton::Left) && ui_state.current_tile.is_some() {
         bevy::log::debug!(
             "pressed left mouse button at {:?}, tile: {:?}, will paint index {:?}",
             ui_state.cursor_pos,
