@@ -126,7 +126,7 @@ fn main() -> Result<()> {
         .insert_resource(settings)
         .init_resource::<FileDialogState>()
         .init_resource::<UiState>()
-        .add_systems(Startup, (setup_camera, draw_map.pipe(error_handler)))
+        .add_systems(Startup, (initialize_scene, draw_map.pipe(error_handler)))
         .add_systems(
             Update,
             (
@@ -140,9 +140,13 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn setup_camera(mut commands: Commands, mut ui_state: ResMut<UiState>) {
+fn initialize_scene(mut commands: Commands, mut ui_state: ResMut<UiState>, settings: Res<GameSettings>) {
     commands.spawn(Camera2dBundle::default());
     ui_state.tile_size = [16, 16];
+    ui_state.current_map.tile_data.set_tilemap_size(
+        settings.game_area_tile_x_max.floor() as u32, 
+        settings.game_area_tile_y_max.floor() as u32
+    );
 }
 
 fn error_handler(In(result): In<Result<()>>) {

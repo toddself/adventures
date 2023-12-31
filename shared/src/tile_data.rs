@@ -8,8 +8,8 @@ use crate::tilemap::TileDesc;
 
 #[derive(Debug, Error)]
 pub enum TileDataError {
-    #[error("Index {0}, {1} exceeds size")]
-    OutOfBoundsError(u32, u32),
+    #[error("Index {0}, {1} exceeds size {2}, {3}")]
+    OutOfBoundsError(u32, u32, u32, u32),
 
     #[error("Tile at {0}, {1} not found")]
     NotFoundError(u32, u32),
@@ -18,8 +18,8 @@ pub enum TileDataError {
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct TileData {
     data: HashMap<u32, HashMap<u32, TileDesc>>,
-    pub max_x: u32,
-    pub max_y: u32,
+    max_x: u32,
+    max_y: u32,
 }
 
 impl TileData {
@@ -39,10 +39,15 @@ impl TileData {
         Ok(td)
     }
 
+    pub fn set_tilemap_size(&mut self, x: u32, y: u32) {
+        self.max_x = x;
+        self.max_y = y;
+    }
+
     pub fn set_tile(&mut self, tile: TileDesc) -> Result<()> {
         let (x, y) = tile.coords.into();
         if x > self.max_x || y > self.max_y {
-            return Err(TileDataError::OutOfBoundsError(x, y).into());
+            return Err(TileDataError::OutOfBoundsError(x, y, self.max_x, self.max_y).into());
         }
         let mut col = HashMap::new();
         if let Some(col) = self.data.get_mut(&x) {
