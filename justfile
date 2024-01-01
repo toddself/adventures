@@ -7,17 +7,17 @@ editor:
 game:
   CONFIG_FILE=./editor/settings.ron just run game
 
-test component: 
-  cargo test -p {{component}} -- --nocapture
+test component test="": 
+  cargo test {{test}} -p {{component}} -- --nocapture
 
-test-editor:
-  just test editor
+test-editor test="":
+  just test editor {{test}}
 
-test-game:
-  just test game
+test-game test="":
+  just test game {{test}}
 
-test-shared:
-  just test shared
+test-shared test="":
+  just test shared {{test}}
 
 test-all: test-game test-editor test-shared
 

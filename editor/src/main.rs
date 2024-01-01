@@ -399,7 +399,7 @@ fn draw_map(
     texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) -> Result<()> {
     if ui_state.current_map.tile_set.is_some() {
-        bevy::log::debug!("map is some {:?}", ui_state.current_map);
+        bevy::log::debug!("in draw map with a tile_set");
         let tilemap = ui_state
             .current_map
             .get_tilemap(&settings, &asset_server, texture_atlases)

@@ -70,16 +70,19 @@ impl MapScreen {
 
     pub fn tilemapdata_from_struct(&self, tile_z: f32) -> Option<Vec<(IVec3, Option<Tile>)>> {
         let mut data = vec![];
+        bevy::log::debug!("tilemap data from struct, tiles are {:?}", self.tile_data);
         for t in self.tile_data.iter() {
-            // let sprite_index = t.tile_source.1 + (t.tile_source.0 * self.tile_rows);
-            let tile = Tile {
-                sprite_index: t.tile_index,
-                ..bevy::utils::default()
-            };
-            let xi32 = i32::try_from(t.coords.x()).ok()?;
-            let yi32 = i32::try_from(t.coords.y()).ok()?;
-            let v3 = ivec3(xi32, yi32, tile_z.floor() as i32);
-            data.push((v3, Some(tile)))
+            bevy::log::debug!("got a tile {:?}", t);
+            if let Some(tile_index) = t.tile_index {
+                let tile = Tile {
+                    sprite_index: tile_index,
+                    ..bevy::utils::default()
+                };
+                let xi32 = i32::try_from(t.coords.x()).ok()?;
+                let yi32 = i32::try_from(t.coords.y()).ok()?;
+                let v3 = ivec3(xi32, yi32, tile_z.floor() as i32);
+                data.push((v3, Some(tile)))
+            }
         }
         Some(data)
     }
@@ -133,6 +136,7 @@ impl MapScreen {
         let mut tilemap = TileMap::default();
         match self.tilemapdata_from_struct(settings.tile_z) {
             Some(data) => {
+                bevy::log::debug!("tilemap data {:?}", data);
                 tilemap.set_tiles(data);
 
                 Some(TileMapBundle {
@@ -150,20 +154,23 @@ impl MapScreen {
                     ..bevy::utils::default()
                 })
             }
-            None => None,
+            None => {
+                bevy::log::debug!("no tile map data to return");
+                None
+            },
         }
     }
 }
 
 #[derive(Debug, Serialize, Copy, Deserialize, Clone, PartialEq)]
 pub struct TileDesc {
-    tile_index: u32,
+    pub tile_index: Option<u32>,
     pub coords: TileCoords,
-    metadata: Option<TileType>,
+    pub metadata: Option<TileType>,
 }
 
 impl TileDesc {
-    pub fn new(index: u32, coords: TileCoords, metadata: Option<TileType>) -> TileDesc {
+    pub fn new(index: Option<u32>, coords: TileCoords, metadata: Option<TileType>) -> TileDesc {
         TileDesc {
             tile_index: index,
             coords,
