@@ -71,9 +71,11 @@ impl TileData {
         self.len() == 0
     }
 
-    pub fn set_tilemap_size(&mut self, x: u32, y: u32) {
+    pub fn set_tilemap_size(&mut self, x: u32, y: u32) -> Result<()> {
         self.max_x = x;
         self.max_y = y;
+        self.populate()?;
+        Ok(())
     }
 
     pub fn set_tile(&mut self, tile: TileDesc) -> Result<()> {
@@ -104,7 +106,6 @@ impl TileData {
             .ok_or(TileDataError::NotFoundError(*x, *y).into())
     }
 
-    // this is broken?
     pub fn iter(&self) -> TileDataIterator {
         TileDataIterator {
             td: self,

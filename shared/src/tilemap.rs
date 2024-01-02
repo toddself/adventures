@@ -12,9 +12,9 @@ use bevy::{
 use bevy_simple_tilemap::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{components::Wall, tile_data::TileData};
 use crate::settings::GameSettings;
 use crate::tile_coords::{coord_to_screen_pos, TileCoords};
+use crate::{components::Wall, tile_data::TileData};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MapScreen {
@@ -43,7 +43,7 @@ impl Default for MapScreen {
             map_name: String::default(),
             map_id: uuid::Uuid::default(),
             tile_set: None,
-            tile_data: TileData::default()
+            tile_data: TileData::default(),
         }
     }
 }
@@ -68,23 +68,21 @@ impl MapScreen {
         }
     }
 
-    pub fn tilemapdata_from_struct(&self, tile_z: f32) -> Option<Vec<(IVec3, Option<Tile>)>> {
+    pub fn tilemapdata_from_struct(&self, tile_z: f32) -> Result<Vec<(IVec3, Option<Tile>)>> {
         let mut data = vec![];
-        bevy::log::debug!("tilemap data from struct, tiles are {:?}", self.tile_data);
         for t in self.tile_data.iter() {
-            bevy::log::debug!("got a tile {:?}", t);
             if let Some(tile_index) = t.tile_index {
                 let tile = Tile {
                     sprite_index: tile_index,
                     ..bevy::utils::default()
                 };
-                let xi32 = i32::try_from(t.coords.x()).ok()?;
-                let yi32 = i32::try_from(t.coords.y()).ok()?;
+                let xi32 = i32::try_from(t.coords.x())?;
+                let yi32 = i32::try_from(t.coords.y())?;
                 let v3 = ivec3(xi32, yi32, tile_z.floor() as i32);
                 data.push((v3, Some(tile)))
             }
         }
-        Some(data)
+        Ok(data)
     }
 
     pub fn get_wallmap(&self, settings: &GameSettings) -> Vec<(SpatialBundle, Wall)> {
@@ -114,7 +112,7 @@ impl MapScreen {
         settings: &GameSettings,
         asset_server: &Res<AssetServer>,
         mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-    ) -> Option<TileMapBundle> {
+    ) -> Result<TileMapBundle> {
         let tm = match &self.tile_set {
             Some(tm) => tm.clone(),
             None => {
@@ -132,33 +130,24 @@ impl MapScreen {
             None,
         );
         let texture_atlas_handle = texture_atlases.add(texture_atlas);
-
         let mut tilemap = TileMap::default();
-        match self.tilemapdata_from_struct(settings.tile_z) {
-            Some(data) => {
-                bevy::log::debug!("tilemap data {:?}", data);
-                tilemap.set_tiles(data);
+        let data = self.tilemapdata_from_struct(0.)?;
+        tilemap.set_tiles(data);
 
-                Some(TileMapBundle {
-                    tilemap,
-                    texture_atlas: texture_atlas_handle.clone(),
-                    transform: Transform {
-                        translation: Vec3::new(
-                            settings.game_area_x_transform,
-                            settings.game_area_y_transform,
-                            0.0,
-                        ),
-                        scale: Vec3::splat(settings.scale),
-                        ..bevy::utils::default()
-                    },
-                    ..bevy::utils::default()
-                })
-            }
-            None => {
-                bevy::log::debug!("no tile map data to return");
-                None
+        Ok(TileMapBundle {
+            tilemap,
+            texture_atlas: texture_atlas_handle.clone(),
+            transform: Transform {
+                translation: Vec3::new(
+                    settings.game_area_x_transform,
+                    settings.game_area_y_transform,
+                    0.0,
+                ),
+                scale: Vec3::splat(settings.scale),
+                ..Default::default()
             },
-        }
+            ..Default::default()
+        })
     }
 }
 

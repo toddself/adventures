@@ -126,7 +126,13 @@ fn main() -> Result<()> {
         .insert_resource(settings)
         .init_resource::<FileDialogState>()
         .init_resource::<UiState>()
-        .add_systems(Startup, (initialize_scene, draw_map.pipe(error_handler)))
+        .add_systems(
+            Startup,
+            (
+                initialize_scene.pipe(error_handler),
+                // draw_map.pipe(error_handler),
+            ),
+        )
         .add_systems(
             Update,
             (
@@ -140,13 +146,18 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn initialize_scene(mut commands: Commands, mut ui_state: ResMut<UiState>, settings: Res<GameSettings>) {
+fn initialize_scene(
+    mut commands: Commands,
+    mut ui_state: ResMut<UiState>,
+    settings: Res<GameSettings>,
+) -> Result<()> {
     commands.spawn(Camera2dBundle::default());
     ui_state.tile_size = [16, 16];
     ui_state.current_map.tile_data.set_tilemap_size(
-        settings.game_area_tile_x_max.floor() as u32, 
-        settings.game_area_tile_y_max.floor() as u32
-    );
+        settings.game_area_tile_x_max.floor() as u32,
+        settings.game_area_tile_y_max.floor() as u32,
+    )?;
+    Ok(())
 }
 
 fn error_handler(In(result): In<Result<()>>) {
@@ -402,8 +413,7 @@ fn draw_map(
         bevy::log::debug!("in draw map with a tile_set");
         let tilemap = ui_state
             .current_map
-            .get_tilemap(&settings, &asset_server, texture_atlases)
-            .ok_or(SystemError::BadTilemap)?;
+            .get_tilemap(&settings, &asset_server, texture_atlases)?;
         commands.spawn(tilemap);
     }
     Ok(())
@@ -442,7 +452,7 @@ fn mouse_button_input(
         if let Some(coords) = &ui_state.current_tile.clone() {
             bevy::log::debug!("setting coords {coords}");
             if let Some(tile_index) = &ui_state.selected_tile_index {
-                let tile = TileDesc::new(*tile_index, *coords, None);
+                let tile = TileDesc::new(Some(*tile_index), *coords, None);
                 ui_state.current_map.tile_data.set_tile(tile)?;
             }
         };
